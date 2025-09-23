@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:tekartik_wav/wav_file.dart';
 
+/// Entry point for the wav_dump command-line tool.
 void main(List<String> args) async {
   for (var arg in args) {
     var file = File(arg);

@@ -6,16 +6,19 @@ import 'package:tekartik_wav/src/import.dart';
 
 import 'byte_utils.dart';
 
+/// Represents a WAV audio file and provides methods to read and parse it.
 class WavFile {
-  //StreamS
-
+  /// The list of sound buffers parsed from the WAV file.
   List<SoundBuffer>? soundBuffers;
 
+  /// Constructs a [WavFile] and initializes the header filler.
   WavFile() {
     headerFiller = Filler(header);
   }
 
-  // Ingore return value, only here for compatibility
+  /// Reads the WAV file from a [stream].
+  ///
+  /// Returns this [WavFile] after reading.
   Future<WavFile> read(Stream<List<int>> stream) async {
     await stream.listen((List<int> data) {
       //print(data);
@@ -25,36 +28,51 @@ class WavFile {
     return this;
   }
 
+  /// Whether the header has been read.
   bool? headerRead;
-  bool done = false;
+
+  /// Whether the file has been fully read.
+  var _done = false;
+
+  /// The header bytes (first 12 bytes of the file).
   Uint8List header = Uint8List(12);
+
+  /// Filler for the header buffer.
   late Filler headerFiller;
 
+  /// The current chunk data being read.
   Uint8List? chunk;
+
+  /// Filler for the current chunk.
   late Filler chunkFiller;
 
+  /// The current chunk header data.
   late Uint8List chunkHeader;
+
+  /// Filler for the current chunk header.
   Filler? chunkHeaderFiller;
 
-  //  36 + SubChunk2Size, or more precisely:
-  //    4 + (8 + SubChunk1Size) + (8 + SubChunk2Size)
-  //    This is the size of the rest of the chunk
-  //    following this number.  This is the size of the
-  //    entire file in bytes minus 8 bytes for the
-  //    two fields not included in this count:
-  //      ChunkID and ChunkSize.
+  /// The total chunk size (file size minus 8 bytes).
   int? totalChunkSize;
+
+  /// The current chunk size.
   int? chunkSize;
 
-  // Format
+  /// The audio format code.
   int? audioFormat;
+
+  /// The number of channels in the audio (e.g., 1 for mono, 2 for stereo).
   int? numChannels;
+
+  /// The sample rate of the audio in Hz.
   int? sampleRate;
+
+  /// The number of bits per sample.
   int? bitsPerSample;
 
-  bool fmtChunkDone = false;
+  bool _fmtChunkDone = false;
 
-  void throwBadFormat(String text) {
+  void _throwBadFormat(String text) {
     throw FormatException(text);
   }
 
@@ -66,13 +84,13 @@ class WavFile {
       var riff = parser.readBEInt32();
       if (riff != 0x52494646) {
         // 'RIFF'
-        throwBadFormat("invalid 'RIFF' header ${Parser.int32asHex(riff)}");
+        _throwBadFormat("invalid 'RIFF' header ${Parser.int32asHex(riff)}");
       }
       totalChunkSize = parser.readLEInt32();
       var wave = parser.readBEInt32();
       if (wave != 0x57415645) {
         // 'WAVE'
-        throwBadFormat("invalid 'WAVE' header ${Parser.int32asHex(wave)}");
+        _throwBadFormat("invalid 'WAVE' header ${Parser.int32asHex(wave)}");
       }
     }
   }
@@ -85,7 +103,7 @@ class WavFile {
       var fmt = parser.readBEInt32();
       if (fmt != 0x666d7420) {
         // 'fmt '
-        throwBadFormat("invalid 'fmt ' header ${Parser.int32asHex(fmt)}");
+        _throwBadFormat("invalid 'fmt ' header ${Parser.int32asHex(fmt)}");
       }
       chunkSize = parser.readLEInt32();
     }
@@ -99,7 +117,7 @@ class WavFile {
       var data = parser.readBEInt32();
       if (data != 0x64617461) {
         // 'data'
-        throwBadFormat("invalid 'data' header ${Parser.int32asHex(data)}");
+        _throwBadFormat("invalid 'data' header ${Parser.int32asHex(data)}");
       }
       chunkSize = parser.readLEInt32();
     }
@@ -125,10 +143,10 @@ class WavFile {
     bitsPerSample = parser.readLEInt16();
 
     if (audioFormat != 1) {
-      throwBadFormat('uncompress PCM only');
+      _throwBadFormat('uncompress PCM only');
     }
     if (bitsPerSample != 16) {
-      throwBadFormat('16bits only');
+      _throwBadFormat('16bits only');
     }
   }
 
@@ -153,6 +171,7 @@ class WavFile {
     }
   }
 
+  /// Feeds a chunk of [data] to the WAV file parser.
   void feed(Uint8List data) {
     var reader = Reader(data);
 
@@ -175,7 +194,7 @@ class WavFile {
     //      _checkHeader();
     //    }
 
-    if (!fmtChunkDone) {
+    if (!_fmtChunkDone) {
       // Chunk1 header
 
       if (chunkHeaderFiller == null) {
@@ -206,14 +225,14 @@ class WavFile {
           return;
         }
 
-        fmtChunkDone = true;
+        _fmtChunkDone = true;
 
         // Reset for 'data'
         chunkHeaderFiller = null;
       }
     }
 
-    if (fmtChunkDone) {
+    if (_fmtChunkDone) {
       // Channel data
 
       if (chunkHeaderFiller == null) {
@@ -248,21 +267,28 @@ class WavFile {
         }
       }
 
-      done = true;
+      _done = true;
     }
   }
 
+  /// Dumps the internal state of the WAV file for debugging purposes.
   void dump() {
-    print('audioFormat: $audioFormat');
-    print('numChannels: $numChannels');
-    print('sampleRate: $sampleRate');
-    print('bitsPerSample: $bitsPerSample');
-    print('totalChunkSize: $totalChunkSize');
+    void log(Object? message) {
+      // ignore: avoid_print
+      print(message);
+    }
 
-    print(soundBuffers);
+    // ignore: avoid_print
+    log('audioFormat: $audioFormat');
+    log('numChannels: $numChannels');
+    log('sampleRate: $sampleRate');
+    log('bitsPerSample: $bitsPerSample');
+    log('totalChunkSize: $totalChunkSize');
+
+    log(soundBuffers);
 
     if (!chunkFiller.done) {
-      print('${chunkFiller.data.length} read while ${chunkFiller.index} found');
+      log('${chunkFiller.data.length} read while ${chunkFiller.index} found');
     }
 
     //    soundBuffers.forEach((SoundBuffer buffer) {
@@ -284,4 +310,10 @@ class WavFile {
     //     int sampleRate;
     //     int bitsPerSample;
   }
+}
+
+/// Private extension
+extension WavFilePrvExt on WavFile {
+  /// Whether the file has been fully read.
+  bool get done => _done;
 }

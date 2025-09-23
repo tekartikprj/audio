@@ -4,6 +4,7 @@ library;
 //import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:tekartik_wav/src/wav_file.dart' show WavFilePrvExt;
 import 'package:tekartik_wav/wav_file.dart';
 import 'package:test/test.dart';
 
