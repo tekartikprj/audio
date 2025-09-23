@@ -1,0 +1,14 @@
+name: tekartik_wav
+version: 0.1.0
+description: Wav helpers
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dependencies:
+  tekartik_common_utils:
+    git:
+      url: https://github.com/tekartik/common_utils.dart
+    version: '>=0.11.1'
+dev_dependencies:
+  test: ">=1.24.0"
+resolution: workspace
