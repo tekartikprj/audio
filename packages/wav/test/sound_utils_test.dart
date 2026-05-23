@@ -44,12 +44,6 @@ void main() {
     test('validation', () {
       expect(() => Pcm16SoundBuffer.mixClamped([]), throwsArgumentError);
 
-      var diffLen = Pcm16SoundBuffer(44100, 2);
-      expect(
-        () => Pcm16SoundBuffer.mixClamped([b1, diffLen]),
-        throwsArgumentError,
-      );
-
       var diffRate = Pcm16SoundBuffer(22050, 3);
       expect(
         () => Pcm16SoundBuffer.mixClamped([b1, diffRate]),
@@ -131,6 +125,53 @@ void main() {
       var mixedLow = Pcm16SoundBuffer.mixNormalized([low1, low2]);
       expect(mixedLow[0], equals(15000));
       expect(mixedLow[1], equals(-15000));
+    });
+
+    test('different lengths', () {
+      var short = Pcm16SoundBuffer(44100, 1)..[0] = 10000;
+      var long = Pcm16SoundBuffer(44100, 3)
+        ..[0] = 20000
+        ..[1] = 15000
+        ..[2] = -5000;
+
+      // clamped:
+      // index 0: 10000 + 20000 = 30000
+      // index 1: 15000
+      // index 2: -5000
+      var mixedClamped = Pcm16SoundBuffer.mixClamped([short, long]);
+      expect(mixedClamped.length, equals(3));
+      expect(mixedClamped[0], equals(30000));
+      expect(mixedClamped[1], equals(15000));
+      expect(mixedClamped[2], equals(-5000));
+
+      // average (total count is 2):
+      // index 0: (10000 + 20000) / 2 = 15000
+      // index 1: 15000 / 2 = 7500
+      // index 2: -5000 / 2 = -2500
+      var mixedAverage = Pcm16SoundBuffer.mixAverage([short, long]);
+      expect(mixedAverage[0], equals(15000));
+      expect(mixedAverage[1], equals(7500));
+      expect(mixedAverage[2], equals(-2500));
+
+      // soft-clipped:
+      // result initialized to [0, 0, 0]
+      // mix short: [10000, 0, 0]
+      // mix long:
+      // index 0: mix(10000, 20000) = 10000 + 20000 - (10000 * 20000)/32767 = 23896
+      // index 1: mix(0, 15000) = 15000
+      // index 2: mix(0, -5000) = -5000
+      var mixedSoft = Pcm16SoundBuffer.mixSoftClipped([short, long]);
+      expect(mixedSoft[0], closeTo(23896, 2));
+      expect(mixedSoft[1], equals(15000));
+      expect(mixedSoft[2], equals(-5000));
+
+      // normalized:
+      // sums: [30000, 15000, -5000]
+      // peak: 30000 <= 32767 -> no scaling
+      var mixedNorm = Pcm16SoundBuffer.mixNormalized([short, long]);
+      expect(mixedNorm[0], equals(30000));
+      expect(mixedNorm[1], equals(15000));
+      expect(mixedNorm[2], equals(-5000));
     });
   });
 }
