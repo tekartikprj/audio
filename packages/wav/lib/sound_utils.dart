@@ -1,3 +1,4 @@
+/// PCM audio buffer utilities.
 library;
 
 /// Exports the [Pcm16SoundBuffer] class from the src directory.
