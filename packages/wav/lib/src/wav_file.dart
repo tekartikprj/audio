@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:tekartik_wav/sound_utils.dart';
@@ -19,12 +20,11 @@ class WavFile {
   /// Reads the WAV file from a [stream].
   ///
   /// Returns this [WavFile] after reading.
+  /// A format error (or a stream error) is thrown.
   Future<WavFile> read(Stream<List<int>> stream) async {
-    await stream.listen((List<int> data) {
-      //print(data);
-      //subscription
+    await for (var data in stream) {
       feed(asUint8List(data));
-    }).asFuture<void>();
+    }
     return this;
   }
 
@@ -72,6 +72,9 @@ class WavFile {
 
   bool _fmtChunkDone = false;
 
+  /// Bytes of an unknown chunk (or padding) still to skip.
+  var _skipRemaining = 0;
+
   void _throwBadFormat(String text) {
     throw FormatException(text);
   }
@@ -104,20 +107,6 @@ class WavFile {
       if (fmt != 0x666d7420) {
         // 'fmt '
         _throwBadFormat("invalid 'fmt ' header ${Parser.int32asHex(fmt)}");
-      }
-      chunkSize = parser.readLEInt32();
-    }
-  }
-
-  void _checkDataChunkHeader() {
-    if (chunkHeaderFiller!.done) {
-      // check header
-      // fmt
-      var parser = Parser(chunkHeader);
-      var data = parser.readBEInt32();
-      if (data != 0x64617461) {
-        // 'data'
-        _throwBadFormat("invalid 'data' header ${Parser.int32asHex(data)}");
       }
       chunkSize = parser.readLEInt32();
     }
@@ -166,7 +155,7 @@ class WavFile {
         if (value > 32767) {
           value = -(65536 - value);
         }
-        soundBuffers![i][index] = value.toDouble() / 32768;
+        soundBuffers![i][index] = value.toDouble() / 32767;
       }
     }
   }
@@ -227,47 +216,62 @@ class WavFile {
 
         _fmtChunkDone = true;
 
-        // Reset for 'data'
+        // Reset for the next chunk, skip the padding byte if any
         chunkHeaderFiller = null;
+        _skipRemaining = chunkSize!.isOdd ? 1 : 0;
       }
     }
 
     if (_fmtChunkDone) {
-      // Channel data
+      while (!_done) {
+        // Unknown chunk or padding to skip
+        if (_skipRemaining > 0) {
+          var count = min(_skipRemaining, reader.data.length - reader.index);
+          reader.index += count;
+          _skipRemaining -= count;
+          if (_skipRemaining > 0) {
+            return;
+          }
+        }
 
-      if (chunkHeaderFiller == null) {
-        chunkHeader = Uint8List(8);
-        chunkHeaderFiller = Filler(chunkHeader);
-      }
+        if (chunkHeaderFiller == null) {
+          chunkHeader = Uint8List(8);
+          chunkHeaderFiller = Filler(chunkHeader);
+        }
 
-      if (!chunkHeaderFiller!.done) {
-        chunkHeaderFiller!.fill(reader);
-        _checkDataChunkHeader();
         if (!chunkHeaderFiller!.done) {
-          return;
+          chunkHeaderFiller!.fill(reader);
+          if (!chunkHeaderFiller!.done) {
+            return;
+          }
+          var parser = Parser(chunkHeader);
+          var id = parser.readBEInt32();
+          chunkSize = parser.readLEInt32();
+          if (id != 0x64617461) {
+            // Not 'data' (LIST, fact...), skip it, chunks are padded to an
+            // even size
+            _skipRemaining = chunkSize! + (chunkSize!.isOdd ? 1 : 0);
+            chunkHeaderFiller = null;
+            continue;
+          }
+
+          // reset chunk
+          chunk = null;
         }
 
-        // reset chunk
-        chunk = null;
-      }
+        // 'data' chunk creation
+        if (chunk == null) {
+          chunk = Uint8List(chunkSize!);
+          chunkFiller = Filler(chunk!);
+        }
 
-      // Chunk2 creation
-      if (chunk == null) {
-        chunk = Uint8List(chunkSize!);
-        chunkFiller = Filler(chunk!);
-      }
-
-      // Chunk2
-      if (!chunkFiller.done) {
         chunkFiller.fill(reader);
-        if (chunkFiller.done) {
-          _parseDataChunk();
-        } else {
+        if (!chunkFiller.done) {
           return;
         }
+        _parseDataChunk();
+        _done = true;
       }
-
-      _done = true;
     }
   }
 

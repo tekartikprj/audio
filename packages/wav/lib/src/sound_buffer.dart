@@ -17,7 +17,11 @@ class SoundBuffer {
   SoundBuffer.view(SoundBuffer sb, int index, int count) {
     sampleRate = sb.sampleRate;
     var float32size = sb.data.elementSizeInBytes;
-    data = Float32List.view(sb.data.buffer, index * float32size, count);
+    data = Float32List.view(
+      sb.data.buffer,
+      sb.data.offsetInBytes + index * float32size,
+      count,
+    );
   }
 
   /// Creates a [SoundBuffer] from existing [sampleRate] and [data].

@@ -22,7 +22,11 @@ class Pcm16SoundBuffer {
   Pcm16SoundBuffer.view(Pcm16SoundBuffer sb, int index, int count) {
     sampleRate = sb.sampleRate;
     var int16size = sb.data.elementSizeInBytes;
-    data = Int16List.view(sb.data.buffer, index * int16size, count);
+    data = Int16List.view(
+      sb.data.buffer,
+      sb.data.offsetInBytes + index * int16size,
+      count,
+    );
   }
 
   /// Returns the element at the given [index] or throws [RangeError] if out of bounds.
@@ -36,11 +40,13 @@ class Pcm16SoundBuffer {
   /// The number of elements in the buffer.
   int get length => data.length;
 
-  /// Converts this buffer to a [SoundBuffer], normalising values to [-1.0, 1.0].
+  /// Converts this buffer to a [SoundBuffer], normalising values to [-1.0, 1.0]
+  /// (same scale as [Pcm16SoundBuffer.fromSoundBuffer], so a round trip keeps
+  /// the values).
   SoundBuffer toSoundBuffer() {
     var sb = SoundBuffer(sampleRate, length);
     for (var i = 0; i < length; i++) {
-      sb[i] = data[i] / 32768.0;
+      sb[i] = data[i] / 32767.0;
     }
     return sb;
   }
