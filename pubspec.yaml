@@ -5,7 +5,9 @@ environment:
 workspace:
   - packages/audio_input
   - packages/pitch
+  - packages/pitch_web_worker
   - packages/wav
   - packages_flutter/audio_input_flutter
   - packages_flutter/audio_input_record
   - packages_flutter/pitch_flutter
+  - apps/pitch_lab

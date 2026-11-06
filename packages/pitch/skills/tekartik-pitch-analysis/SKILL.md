@@ -75,6 +75,10 @@ and settings with a JSON form.
 * Steady readings with `PitchSmoother` (median + average over a time
   window, `add(frequency, clarity, timeSeconds)`), `PitchSmootherBank` (one
   per target) and `PitchReedsTracker`.
+* Where the analyses run: `PitchProcessor.local.open(runner)` gives a
+  `PitchSession` (`add`, `steps`, `setAnalyses`, `close`) running here;
+  `PitchWorkerProcessor` (tekartik_pitch_web_worker) runs it in a web
+  worker or an isolate.
 * Web worker or isolate: send `runner.toJson()` (rebuild with
   `PitchRunner.fromJson`), transfer the chunks, send back
   `step.toJson()` (`PitchStep.fromJson`). `pitchAlgorithmFromJson` builds

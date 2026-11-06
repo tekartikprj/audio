@@ -1,6 +1,7 @@
 # Pitch packages: plan
 
-Status: step 1 committed (84eae60, 2026-11-06); step 2 in progress.
+Status: steps 1 and 2 committed (84eae60, 5bef0cf, 2026-11-06); step 3 (the
+web worker) and the lab (step 4) done, a demo on tkhostelio dev.
 
 ## Goal
 
@@ -92,9 +93,14 @@ showcase.
 2. `tekartik_audio_input_flutter` (level widgets),
    `tekartik_audio_input_record` (microphone), `tekartik_pitch_flutter`,
    the level meter in `tekartik_audio_input`; the existing apps switch to
-   them (packages done, apps in progress).
-3. `tekartik_pitch_web_worker`.
-4. `pitch_lab`; the experiments' copies are removed.
+   them (done; the accordion app switched, not committed).
+3. `tekartik_pitch_web_worker` (done): `PitchProcessor` / `PitchSession` in
+   `tekartik_pitch` (the local one runs a `PitchRunner` here),
+   `PitchWorkerProcessor` (web worker, isolate on io, main thread
+   fallback), `PitchListening(processor:)`.
+4. `pitch_lab` (done, demo `pitch_lab_demo` on tkhostelio dev: test sounds,
+   microphone, WAV files, the five views, the worker switch); the
+   experiments' copies are removed (to do).
 
 Later: capture in an AudioWorklet of our own that posts straight to the
 analysis worker (the `record` package goes through the main thread).

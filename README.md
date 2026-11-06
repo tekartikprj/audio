@@ -25,5 +25,13 @@ Audio utilities
 - tekartik_audio_input_record: the microphone (record plugin).
 - tekartik_pitch_flutter: listening controller, gauge, reeds, strings.
 
+### tekartik_pitch_web_worker
+
+- The analyses in a web worker (an isolate on io).
+
+### apps/pitch_lab
+
+- Every algorithm at once on the microphone, test sounds or a WAV file.
+
 Plan: [doc/pitch_plan.md](doc/pitch_plan.md).
 

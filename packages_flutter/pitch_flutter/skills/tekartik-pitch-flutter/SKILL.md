@@ -29,7 +29,10 @@ description: >-
   wrapped in an `AudioInputMetered` unless it is one), `step` (the last
   `PitchStep`) are `ValueNotifier`s; `onStep` gets every step;
   `a4 = 442` updates the analyses at once; `ago(step, id)` is how long ago
-  the sound of a result was heard (latency + half its window).
+  the sound of a result was heard (latency + half its window);
+  `processor: PitchWorkerProcessor()` (tekartik_pitch_web_worker) runs the
+  analyses in a web worker or an isolate (steps then arrive
+  asynchronously).
 * Widgets take their colors from the theme (`PitchColors.of`,
   `AudioLevelColors.of`) or `colors:`: `PitchListeningControl(listening:,
   intro:, child:, labels:)` (pass translated `PitchListeningLabels`),

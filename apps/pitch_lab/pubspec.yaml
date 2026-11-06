@@ -1,0 +1,58 @@
+name: pitch_lab
+description: >-
+  Pitch lab: the microphone, test sounds or a WAV file analyzed by every
+  tekartik_pitch algorithm at once: one note, the strings of an instrument,
+  the reeds of an accordion note, the notes played, the algorithms compared.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ">=1.8.0"
+  tekartik_pitch:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages/pitch
+    version: '>=0.1.0'
+  tekartik_pitch_flutter:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages_flutter/pitch_flutter
+    version: '>=0.1.0'
+  tekartik_pitch_web_worker:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages/pitch_web_worker
+    version: '>=0.1.0'
+  tekartik_audio_input_record:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages_flutter/audio_input_record
+    version: '>=0.1.0'
+  tekaly_file_picker:
+    git:
+      url: https://github.com/tekartikprj/tekaly
+      path: packages/file_picker
+    version: '>=0.2.0'
+  tekaly_file_picker_flutter:
+    git:
+      url: https://github.com/tekartikprj/tekaly
+      path: flutter_packages/file_picker_flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  tekartik_lints_flutter:
+    git:
+      url: https://github.com/tekartik/common_flutter.dart
+      path: packages/lints_flutter
+
+flutter:
+  uses-material-design: true
+
+resolution: workspace

@@ -34,22 +34,28 @@ class PitchListening {
   /// The error of the last start, when it failed or was denied.
   Object? error;
 
+  /// Where the analyses run: here by default, in a web worker or an
+  /// isolate with a `PitchWorkerProcessor` (tekartik_pitch_web_worker).
+  final PitchProcessor processor;
+
   List<PitchAnalysis> _analyses;
   double _a4;
-  PitchRunner? _runner;
+  PitchSession? _session;
+  StreamSubscription<PitchStep>? _stepSubscription;
   StreamSubscription<Float32List>? _subscription;
   final AudioInputMetered? _metered;
   StreamSubscription<AudioLevel>? _levelSubscription;
 
   /// Listening to [input] (measured, see [level]) with [analyses], A4 at
   /// [a4] Hz, a step every [hop] samples, each analysis timed when
-  /// [timed].
+  /// [timed], run by [processor] (here by default).
   PitchListening(
     this.input, {
     required List<PitchAnalysis> analyses,
     this.hop = 2048,
     double a4 = 440,
     this.timed = false,
+    this.processor = PitchProcessor.local,
   }) : _analyses = [
          for (var analysis in analyses)
            PitchAnalysis(analysis.id, analysis.algorithm.withA4(a4)),
@@ -87,7 +93,7 @@ class PitchListening {
   /// Replaces the analyses, at once when listening.
   set analyses(List<PitchAnalysis> analyses) {
     _analyses = List.of(analyses);
-    _runner?.analyses = _analyses;
+    _session?.setAnalyses(_analyses);
   }
 
   /// True while listening.
@@ -119,19 +125,20 @@ class PitchListening {
     state.value = AudioInputState.starting;
     try {
       var chunks = await input.start();
-      var runner = _runner = PitchRunner(
-        sampleRate: input.sampleRate,
-        analyses: _analyses,
-        hop: hop,
-        timed: timed,
+      var session = _session = await processor.open(
+        PitchRunner(
+          sampleRate: input.sampleRate,
+          analyses: _analyses,
+          hop: hop,
+          timed: timed,
+        ),
       );
+      _stepSubscription = session.steps.listen((step) {
+        this.step.value = step;
+        onStep?.call(step);
+      }, onError: (Object e) => debugPrint('pitch listening: $e'));
       _subscription = chunks.listen(
-        (samples) {
-          for (var step in runner.add(samples)) {
-            this.step.value = step;
-            onStep?.call(step);
-          }
-        },
+        session.add,
         onDone: () {
           if (state.value == AudioInputState.on) {
             state.value = AudioInputState.off;
@@ -159,7 +166,10 @@ class PitchListening {
     // future).
     unawaited(_subscription?.cancel());
     _subscription = null;
-    _runner = null;
+    unawaited(_stepSubscription?.cancel());
+    _stepSubscription = null;
+    unawaited(_session?.close());
+    _session = null;
     try {
       await _metered?.stop();
     } catch (e) {

@@ -16,6 +16,7 @@ export 'src/algorithms/yin.dart';
 export 'src/fft.dart';
 export 'src/frame.dart';
 export 'src/pitch_math.dart';
+export 'src/processor.dart';
 export 'src/registry.dart';
 export 'src/result.dart';
 export 'src/ring.dart';
