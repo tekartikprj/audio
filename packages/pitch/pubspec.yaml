@@ -1,0 +1,15 @@
+name: tekartik_pitch
+version: 0.1.0
+description: >-
+  Pitch analysis in pure Dart: single note, several notes, tuning against
+  targets, reeds of a note, several algorithms at once on a shared spectrum.
+publish_to: none
+environment:
+  sdk: ^3.12.0
+dev_dependencies:
+  test: ">=1.31.0"
+  tekartik_lints:
+    git:
+      url: https://github.com/tekartik/common.dart
+      path: packages/lints
+resolution: workspace
