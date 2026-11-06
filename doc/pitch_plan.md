@@ -1,6 +1,6 @@
 # Pitch packages: plan
 
-Status: step 1 done (2026-11-06), not committed.
+Status: step 1 committed (84eae60, 2026-11-06); step 2 in progress.
 
 ## Goal
 
@@ -12,7 +12,8 @@ apps built on it:
 - several algorithms run at once on the same sound, sharing their FFTs, to
   compare them live or in tests;
 - poly tuning (each string of a guitar, each reed of an accordion note);
-- the microphone and recorded files as interchangeable inputs;
+- the microphone and recorded files as interchangeable inputs, their level
+  shown on its own (a direct sign the sound comes in);
 - on the web, the analysis in a web worker; on native, in an isolate;
 - the Flutter parts (listening state, gauges, displays) reusable by apps
   with their own look.
@@ -29,20 +30,23 @@ showcase.
 
 | Package | Kind | Content |
 |---|---|---|
-| `tekartik_pitch` (`packages/pitch`) | pure Dart (VM, web) | Frames with a shared spectrum per FFT size, the algorithms, their results (JSON), the runner of several algorithms at once, smoothers, instrument tunings, test signals |
-| `tekartik_audio_input` (`packages/audio_input`) | pure Dart | `AudioInput` (sample rate, latency, `start()` → `Stream<Float32List>`, `stop()`), its states, a push input (tests), a WAV file input played in real time or faster (`tekartik_wav`) |
+| `tekartik_pitch` (`packages/pitch`) | pure Dart (VM, web) | Frames with a shared spectrum per FFT size, the algorithms, their results (JSON), the runner of several algorithms at once, quality for display, smoothers, instrument tunings, test signals |
+| `tekartik_audio_input` (`packages/audio_input`) | pure Dart | `AudioInput` (sample rate, latency, `start()` → `Stream<Float32List>`, `stop()`), its states and errors, input devices, a push input (tests), a samples or WAV input played in real time or faster (`tekartik_wav`), PCM16 decoding, the level of the sound (`AudioLevelMeter`) and any input measured as it goes (`AudioInputMetered`) |
 | `tekartik_pitch_web_worker` (`packages/pitch_web_worker`) | pure Dart, web + io | The runner in a web worker (`tekartik_web_worker_build`), in an isolate on io, on the main thread as a fallback |
-| `tekartik_audio_input_flutter` (`packages_flutter/audio_input_flutter`) | Flutter | The microphone through the `record` package: 16 bit PCM to floats, no automatic gain, echo cancellation or noise suppression (they eat held notes), permission and failure states, input device list and choice |
-| `tekartik_pitch_flutter` (`packages_flutter/pitch_flutter`) | Flutter | A listening controller (`ValueNotifier`, no state management package), widgets: start/stop card, needle gauge, per string display, reeds view, algorithm comparison; colors from the theme |
-| `pitch_lab` (`apps/pitch_lab`) | Flutter app | Microphone or WAV file, several algorithms side by side, mono / poly / reeds, instruments |
+| `tekartik_audio_input_flutter` (`packages_flutter/audio_input_flutter`) | Flutter, no plugin | Level widgets: a bar with peak hold and clipping, a microphone icon pulsing with the sound, a builder following a metered input |
+| `tekartik_audio_input_record` (`packages_flutter/audio_input_record`) | Flutter plugin | The microphone through the `record` package: 16 bit PCM to floats, no automatic gain, echo cancellation or noise suppression (they eat held notes), permission and failure errors, input devices. Kept apart so apps without a microphone do not carry the plugin (iOS asks for a microphone purpose string as soon as the API is linked) |
+| `tekartik_pitch_flutter` (`packages_flutter/pitch_flutter`) | Flutter, no plugin | A listening controller (`ValueNotifier`s: state, level, step; no state management package), widgets: start/stop control, needle gauge, per string display, reeds view; colors from the theme |
+| `pitch_lab` (`apps/pitch_lab`) | Flutter app | Microphone or WAV file, several algorithms side by side (comparison view), mono / poly / reeds, instruments |
 
 ## `tekartik_pitch` design
 
 - **Chunks, not frames.** Inputs give chunks of any size (`Float32List`).
-  The runner keeps the last samples in a ring and, every hop, hands each
-  algorithm a `PitchFrame` of the latest samples: each algorithm reads the
-  window it needs (YIN 2048 to 4096, the reeds 16384 to 65536), which fixed
-  frames cannot do. `Float32List` chunks are transferable to a web worker.
+  The runner keeps the last samples in a ring and, at every multiple of the
+  hop (whatever the chunk sizes), hands each algorithm a `PitchFrame` of
+  the latest samples: each algorithm reads the window it needs (YIN 2048 to
+  4096, the reeds 16384 to 65536), which fixed frames cannot do. A chunk
+  spanning more than `maxBehind` hops (a busy page) gives only its last
+  steps. `Float32List` chunks are transferable to a web worker.
 - **Shared spectra.** `PitchFrame.spectrum(size)` is computed once per size
   (Hann window) and shared by the algorithms of the step.
 - **Algorithms** (`PitchAlgorithm<T extends PitchResult>`): `type`,
@@ -64,9 +68,9 @@ showcase.
 - **Results** (`PitchResult`): JSON round trip, so steps cross a worker
   boundary.
 - **Runner** (`PitchRunner`): sample rate, hop, named analyses (id +
-  algorithm); `add(chunk)` returns the steps due (only the last one when
-  late); each `PitchStep` holds the results by id and, when timed, the
-  microseconds each analysis took. Its configuration is JSON too.
+  algorithm); `add(chunk)` returns the steps due; each `PitchStep` holds the
+  results by id, the windows and, when timed, the microseconds each
+  analysis took. Its configuration is JSON too.
 - **Quality for display**: a steadied `PitchReading` (spread in cents,
   readings, seconds held, `stable()`), clarity documented per algorithm and
   a common `harmonicity`, per reed uncertainty and support, per string
@@ -84,14 +88,29 @@ showcase.
 ## Steps
 
 1. `tekartik_pitch` + `tekartik_audio_input`, with the tests of the
-   experiments moved over (done: 60 + 7 tests, VM and Chrome).
-2. `tekartik_audio_input_flutter` + `tekartik_pitch_flutter`; the existing
-   apps switch to them.
+   experiments moved over (done, committed).
+2. `tekartik_audio_input_flutter` (level widgets),
+   `tekartik_audio_input_record` (microphone), `tekartik_pitch_flutter`,
+   the level meter in `tekartik_audio_input`; the existing apps switch to
+   them (packages done, apps in progress).
 3. `tekartik_pitch_web_worker`.
 4. `pitch_lab`; the experiments' copies are removed.
 
 Later: capture in an AudioWorklet of our own that posts straight to the
 analysis worker (the `record` package goes through the main thread).
+
+## Later: audio effects
+
+This repository is also the home for audio effects (fade, normalize,
+compress, limit, reverb...), in their own pure Dart package
+(`tekartik_audio_effects`, `packages/effects`) on the same conventions:
+mono (or per channel) `Float32List` buffers at a sample rate, and stateful
+processors fed chunk by chunk, so the same effect runs on a whole file
+(offline, with `tekartik_wav`) and on a live stream (an `AudioInput`, a
+player). Shared pieces: the envelope of `AudioLevelMeter` for a compressor
+or a limiter; the mixing algorithms of `tekartik_wav` (clamped, average,
+soft clipped, normalized). Effects that need the whole sound (normalize to
+a peak, trim silence) take a buffer; the others take chunks.
 
 ## Open questions
 

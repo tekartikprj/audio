@@ -33,8 +33,10 @@ and settings with a JSON form.
   sounds: `sine`, `tone`, `pluck`, `reeds`, `mix`, `noise`, `withNoise`).
 * Samples are mono `Float32List` in [-1, 1]. Feed chunks of any size to a
   `PitchRunner(sampleRate:, analyses: [PitchAnalysis(id, algorithm)], hop:
-  2048)`: `add(chunk)` returns the `PitchStep`s due (only the last one when
-  a chunk spans several hops), `bind(stream)` maps a stream of chunks.
+  2048)`: `add(chunk)` returns the `PitchStep`s due, each ending exactly at
+  a multiple of the hop whatever the chunk sizes (a chunk spanning more
+  than `maxBehind`, 4, hops gives only its last ones), `bind(stream)` maps
+  a stream of chunks.
   Read a result with `step.result<PitchEstimate>('yin')` (null when nothing
   was found or the type differs). `timed: true` fills `step.micros`.
 * Each algorithm reads the window it needs from the frame (`windowSize`);

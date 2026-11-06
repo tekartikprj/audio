@@ -1,0 +1,27 @@
+name: tekartik_audio_input_flutter
+version: 0.1.0
+description: >-
+  Flutter widgets for audio inputs, without any plugin: a level bar with
+  peak hold and clipping, a microphone icon pulsing with the sound, a
+  builder following a metered input.
+publish_to: none
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.35.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ">=1.8.0"
+  tekartik_audio_input:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages/audio_input
+    version: '>=0.1.0'
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  tekartik_lints_flutter:
+    git:
+      url: https://github.com/tekartik/common_flutter.dart
+      path: packages/lints_flutter
+resolution: workspace

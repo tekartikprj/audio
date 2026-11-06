@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:tekartik_wav/wav_file.dart';
 
 import 'audio_input.dart';
+import 'close.dart';
 
 /// Samples played as an input: a WAV file or computed sounds, in real time
 /// (as the microphone would give them), faster, or as fast as possible.
@@ -24,7 +25,7 @@ class AudioInputSamples implements AudioInput {
   /// True to start again at the end, else the stream ends.
   final bool loop;
 
-  StreamController<Float32List>? _controller;
+  AudioInputController? _controller;
   Timer? _timer;
   var _position = 0;
 
@@ -91,7 +92,8 @@ class AudioInputSamples implements AudioInput {
   Future<Stream<Float32List>> start() async {
     await stop();
     _position = 0;
-    var controller = _controller = StreamController<Float32List>();
+    var wrapper = _controller = AudioInputController();
+    var controller = wrapper.controller;
     if (speed <= 0) {
       unawaited(_fast(controller));
     } else {
@@ -99,7 +101,8 @@ class AudioInputSamples implements AudioInput {
       var sent = 0;
       void tick() {
         var due = stopwatch.elapsedMicroseconds * sampleRate * speed / 1e6;
-        while (sent + chunkSize <= due && identical(_controller, controller)) {
+        while (sent + chunkSize <= due &&
+            identical(_controller?.controller, controller)) {
           if (!_send(controller)) {
             return;
           }
@@ -113,7 +116,7 @@ class AudioInputSamples implements AudioInput {
   }
 
   Future<void> _fast(StreamController<Float32List> controller) async {
-    while (identical(_controller, controller)) {
+    while (identical(_controller?.controller, controller)) {
       if (!_send(controller)) {
         return;
       }

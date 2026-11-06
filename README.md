@@ -16,7 +16,14 @@ Audio utilities
 ### tekartik_audio_input
 
 - Audio input abstraction: mono chunks from a microphone, samples or a WAV
-  file.
+  file; the level of the sound.
+
+### Flutter
+
+- tekartik_audio_input_flutter: level widgets (bar, pulsing microphone),
+  no plugin.
+- tekartik_audio_input_record: the microphone (record plugin).
+- tekartik_pitch_flutter: listening controller, gauge, reeds, strings.
 
 Plan: [doc/pitch_plan.md](doc/pitch_plan.md).
 

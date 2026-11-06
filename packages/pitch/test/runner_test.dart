@@ -41,8 +41,9 @@ void main() {
       expect(steps, hasLength(samples.length ~/ 2048));
       expect(runner.received, samples.length);
       var last = steps.last;
-      // At the end of the chunk crossing the hop.
-      expect(last.sample, 70000);
+      // At the multiples of the hop, whatever the chunks.
+      expect(last.sample, steps.length * 2048);
+      expect(steps[1].sample - steps[0].sample, 2048);
       expect(last.time, closeTo(last.sample / _rate, 1e-9));
       expect(last.level, greaterThan(0.05));
       expect(last.result<PitchEstimate>('yin')!.note(), 57);
@@ -56,16 +57,29 @@ void main() {
       expect(_feed(_tuner(), samples, 4096).last.micros, isNull);
     });
 
-    test('late: one step for a long chunk', () {
+    test('chunks of any size; late: only the last steps', () {
       var runner = _tuner();
+      // 10 hops in a chunk: the last 4.
       var steps = runner.add(PitchSignal.reeds(440, [0], seconds: 0.5));
-      expect(steps, hasLength(1));
-      expect(steps.single.sample, 22050);
+      expect(steps.map((step) => step.sample), [14336, 16384, 18432, 20480]);
       // The next step at the next multiple of the hop: 22528.
       expect(runner.add(Float32List(400)), isEmpty);
-      expect(runner.add(Float32List(100)), hasLength(1));
+      expect(runner.add(Float32List(100)).single.sample, 22528);
+      // A chunk of two hops: two steps.
+      expect(runner.add(Float32List(4096)).map((step) => step.sample), [
+        24576,
+        26624,
+      ]);
       runner.reset();
       expect(runner.received, 0);
+      // One step per chunk at most.
+      var one = PitchRunner(
+        sampleRate: _rate,
+        maxBehind: 1,
+        analyses: const [PitchAnalysis('yin', YinPitchAlgorithm())],
+      );
+      expect(one.add(Float32List(22050)).single.sample, 20480);
+      expect(one.toJson()['maxBehind'], 1);
     });
 
     test('A4 at 442, the analyses replaced', () {

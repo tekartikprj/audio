@@ -6,9 +6,9 @@ import 'frame.dart';
 import 'ring.dart';
 
 /// Runs several analyses on the same sound: chunks of samples in, a step
-/// every [hop] samples out, each analysis given a frame of the latest
-/// samples (sharing their spectra) and the results of the analyses before
-/// it.
+/// every [hop] samples out (at the multiples of [hop], whatever the size
+/// of the chunks), each analysis given a frame of the latest samples
+/// (sharing their spectra) and the results of the analyses before it.
 class PitchRunner {
   /// The sample rate of the chunks.
   final int sampleRate;
@@ -19,17 +19,23 @@ class PitchRunner {
   /// True to time each analysis ([PitchStep.micros]).
   final bool timed;
 
+  /// The most steps a chunk gives: when a chunk spans more hops (a busy
+  /// page catching up), only its last [maxBehind] steps are analyzed.
+  final int maxBehind;
+
   List<PitchAnalysis> _analyses;
   PitchSampleRing _ring;
   var _next = 0;
 
   /// A runner of [analyses] (run in this order) on chunks at [sampleRate],
-  /// a step every [hop] samples, each analysis timed when [timed].
+  /// a step every [hop] samples, at most [maxBehind] steps per chunk, each
+  /// analysis timed when [timed].
   PitchRunner({
     required this.sampleRate,
     required List<PitchAnalysis> analyses,
     this.hop = 2048,
     this.timed = false,
+    this.maxBehind = 4,
   }) : _analyses = List.of(analyses),
        _ring = PitchSampleRing(_capacity(analyses, sampleRate, hop)) {
     _next = hop;
@@ -40,6 +46,7 @@ class PitchRunner {
     sampleRate: json['sampleRate'] as int,
     hop: (json['hop'] as int?) ?? 2048,
     timed: (json['timed'] as bool?) ?? false,
+    maxBehind: (json['maxBehind'] as int?) ?? 4,
     analyses: [
       for (var analysis in json['analyses'] as List)
         PitchAnalysis.fromJson((analysis as Map).cast<String, Object?>()),
@@ -85,19 +92,31 @@ class PitchRunner {
   /// The samples received since the start (or the last [reset]).
   int get received => _ring.received;
 
-  /// Adds a chunk of [samples]: the steps due, only the last one when
-  /// late (several hops in one chunk).
+  /// Adds a chunk of [samples]: the steps due, each ending exactly at its
+  /// multiple of [hop]; only the last [maxBehind] when the chunk spans more
+  /// hops.
   List<PitchStep> add(Float32List samples) {
-    _ring.add(samples);
+    var start = _ring.received;
+    var end = start + samples.length;
+    if (end < _next) {
+      _ring.add(samples);
+      return const [];
+    }
+    // The steps due in this chunk, the late ones skipped.
+    var due = (end - _next) ~/ hop + 1;
+    if (due > maxBehind) {
+      _next += (due - maxBehind) * hop;
+    }
     var steps = <PitchStep>[];
-    while (_ring.received >= _next) {
-      if (_ring.received - _next >= hop) {
-        _next = _ring.received - _ring.received % hop;
-        continue;
-      }
+    var offset = 0;
+    while (_next <= end) {
+      var to = _next - start;
+      _ring.add(Float32List.sublistView(samples, offset, to));
+      offset = to;
       steps.add(_step());
       _next += hop;
     }
+    _ring.add(Float32List.sublistView(samples, offset));
     return steps;
   }
 
@@ -143,6 +162,7 @@ class PitchRunner {
     'sampleRate': sampleRate,
     'hop': hop,
     'timed': timed,
+    'maxBehind': maxBehind,
     'analyses': [for (var analysis in _analyses) analysis.toJson()],
   };
 }

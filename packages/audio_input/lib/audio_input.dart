@@ -4,5 +4,8 @@
 library;
 
 export 'src/audio_input.dart';
+export 'src/level.dart';
+export 'src/metered.dart';
+export 'src/pcm16.dart';
 export 'src/push.dart';
 export 'src/samples.dart';

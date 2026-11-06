@@ -40,5 +40,18 @@ file or a test.
   and throws a `FormatException` otherwise.
 * `AudioInputPush` is fed by hand (`push(samples)` once started): tests and
   samples coming from elsewhere.
-* The microphone itself lives in a Flutter package (the `record` package),
-  implementing `AudioInput`.
+* Level of the sound, independent of the consumer: wrap any input,
+  `var metered = AudioInputMetered(input)`, give `metered` to the
+  consumer, show `metered.levels` / `metered.level` (`AudioLevel`: `rms`,
+  `peak`, `display` falling 24 dB/s, `heldPeak` 1.5 s, `clipped` kept 1 s,
+  decibels, `quiet()`); no level comes while nobody listens to the stream
+  of `start()`. `AudioLevelMeter(sampleRate:)` measures chunks without an
+  input. Widgets: `tekartik_audio_input_flutter`.
+* `AudioInputDevice(id, label)` names an input the user may choose;
+  `AudioInputPcm16Decoder().convert(bytes)` turns 16 bit PCM bytes into
+  samples, carrying an odd byte to the next chunk.
+* Implementing an input: a listener that cancelled must not be waited for
+  (closing the controller then never completes); see `AudioInputPush`.
+* The microphone is `AudioInputMicrophone` in `tekartik_audio_input_record`
+  (the `record` plugin); the level widgets are in
+  `tekartik_audio_input_flutter` (no plugin).

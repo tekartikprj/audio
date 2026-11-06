@@ -1,0 +1,37 @@
+name: tekartik_pitch_flutter
+version: 0.1.0
+description: >-
+  Flutter parts of pitch analysis: a listening controller running
+  tekartik_pitch on an audio input, and widgets (gauge, level meter, reeds,
+  strings, start and stop control) taking their colors from the theme.
+publish_to: none
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.35.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ">=1.8.0"
+  tekartik_audio_input:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages/audio_input
+    version: '>=0.1.0'
+  tekartik_audio_input_flutter:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages_flutter/audio_input_flutter
+    version: '>=0.1.0'
+  tekartik_pitch:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages/pitch
+    version: '>=0.1.0'
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  tekartik_lints_flutter:
+    git:
+      url: https://github.com/tekartik/common_flutter.dart
+      path: packages/lints_flutter
+resolution: workspace

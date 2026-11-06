@@ -27,7 +27,8 @@ var runner = PitchRunner(
     PitchAnalysis('reeds', ReedsPitchAlgorithm(source: 'yin')),
   ],
 );
-// Chunks of any size (a microphone, a file), a step every 2048 samples.
+// Chunks of any size (a microphone, a file), a step at every multiple of
+// 2048 samples.
 for (var step in runner.add(chunk)) {
   var note = step.result<PitchEstimate>('yin');
   var reeds = step.result<PitchReeds>('reeds');

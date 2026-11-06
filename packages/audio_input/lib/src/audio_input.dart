@@ -18,6 +18,28 @@ abstract class AudioInput {
   Future<void> stop();
 }
 
+/// An input device (a microphone) the user may choose.
+class AudioInputDevice {
+  /// The id the platform selects it by.
+  final String id;
+
+  /// The name shown.
+  final String label;
+
+  /// The device [id] named [label].
+  const AudioInputDevice(this.id, this.label);
+
+  @override
+  bool operator ==(Object other) =>
+      other is AudioInputDevice && other.id == id && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(id, label);
+
+  @override
+  String toString() => 'AudioInputDevice($id, $label)';
+}
+
 /// The states of an audio input as shown to the user.
 enum AudioInputState {
   /// Not started.
