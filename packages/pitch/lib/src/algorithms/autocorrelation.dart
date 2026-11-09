@@ -103,14 +103,15 @@ class AutocorrelationPitchAlgorithm extends PitchAlgorithm<PitchEstimate> {
     if (best < threshold) {
       return null;
     }
-    // Between the samples: a parabola through the peak.
+    // Between the samples: the top of a parabola through the peak (towards
+    // the higher neighbor).
     var lag = bestLag.toDouble();
     if (bestLag > minLag && bestLag < maxLag) {
       var s0 = _correlation(samples, bestLag - 1) / r0;
       var s2 = _correlation(samples, bestLag + 1) / r0;
       var divisor = 2 * (2 * best - s2 - s0);
       if (divisor != 0) {
-        lag = bestLag - (s2 - s0) / divisor;
+        lag = bestLag + (s2 - s0) / divisor;
       }
     }
     var clarity = ((best - threshold) / (1 - threshold)).clamp(0.0, 1.0);

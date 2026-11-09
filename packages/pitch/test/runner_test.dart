@@ -112,6 +112,46 @@ void main() {
       expect(small.analyses.single.id, 'peeling');
     });
 
+    test('analyses with a longer window: the samples kept stay in order', () {
+      // A ramp: sample i is i + 1, the frame order is visible.
+      var next = 0;
+      Float32List ramp(int count) => Float32List.fromList([
+        for (var i = 0; i < count; i++) (++next).toDouble(),
+      ]);
+      var runner = PitchRunner(
+        sampleRate: _rate,
+        analyses: const [PitchAnalysis('spy', _SpyAlgorithm(4096))],
+      );
+      runner.add(ramp(10000));
+      runner.analyses = const [PitchAnalysis('spy', _SpyAlgorithm(16384))];
+      expect(runner.received, 10000);
+      var step = runner.add(ramp(240)).single;
+      expect(step.sample, 10240);
+      var frame = step.result<_SpyResult>('spy')!.samples;
+      expect(frame, hasLength(16384));
+      // Zeros before the first sample kept, then every sample in order up
+      // to the last one received: the 6144 kept and the 240 new ones.
+      var first = frame.indexWhere((sample) => sample != 0);
+      expect(frame.length - first, 6144 + 240);
+      for (var i = first; i < frame.length; i++) {
+        expect(frame[i], 10240 - (frame.length - 1 - i), reason: 'at $i');
+      }
+      // A clean note right after the change is still heard.
+      var yin = PitchRunner(
+        sampleRate: _rate,
+        analyses: const [PitchAnalysis('yin', YinPitchAlgorithm())],
+      );
+      var sine = PitchSignal.sine(440, seconds: 0.5);
+      yin.add(Float32List.sublistView(sine, 0, 10000));
+      yin.analyses = const [
+        PitchAnalysis('yin', YinPitchAlgorithm()),
+        PitchAnalysis('peeling', HarmonicPeelingPitchAlgorithm()),
+      ];
+      var after = yin.add(Float32List.sublistView(sine, 10000, 10240)).single;
+      expect(after.result<PitchEstimate>('yin')!.frequency, closeTo(440, 0.5));
+      expect(after.level, closeTo(0.3 / math.sqrt2, 0.01));
+    });
+
     test('json: the settings, the steps', () {
       var runner = _tuner();
       var copy = PitchRunner.fromJson(
@@ -197,4 +237,37 @@ void main() {
       expect(copy.windows, quiet.windows);
     });
   });
+}
+
+/// The frame an analysis was given.
+class _SpyResult extends PitchResult {
+  final Float32List samples;
+
+  _SpyResult(this.samples);
+
+  @override
+  String get kind => 'spy';
+
+  @override
+  Map<String, Object?> toJson() => {'kind': kind};
+}
+
+/// Keeps the frame it is given.
+class _SpyAlgorithm extends PitchAlgorithm<_SpyResult> {
+  final int size;
+
+  const _SpyAlgorithm(this.size);
+
+  @override
+  String get type => 'spy';
+
+  @override
+  int windowSize(int sampleRate) => size;
+
+  @override
+  _SpyResult analyze(PitchFrame frame, {PitchStep? step}) =>
+      _SpyResult(Float32List.fromList(frame.latest(size)));
+
+  @override
+  Map<String, Object?> toJson() => {'type': type, 'size': size};
 }

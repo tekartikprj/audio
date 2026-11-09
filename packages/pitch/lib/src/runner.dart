@@ -71,9 +71,11 @@ class PitchRunner {
     _analyses = List.of(analyses);
     var capacity = _capacity(_analyses, sampleRate, hop);
     if (capacity > _ring.capacity) {
-      var ring = PitchSampleRing(capacity)
-        ..add(_ring.latest(_ring.capacity))
-        ..received = _ring.received;
+      // The samples kept are written where the new ring expects them: its
+      // write position follows the samples received.
+      var kept = math.min(_ring.received, _ring.capacity);
+      var ring = PitchSampleRing(capacity)..received = _ring.received - kept;
+      ring.add(_ring.latest(kept));
       _ring = ring;
     }
   }
