@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:tekartik_pitch/pitch.dart';
 
 import 'processor.dart';
+import 'protocol.dart';
 
 /// The io processor: an isolate per session.
 PitchWorkerProcessor newPitchWorkerProcessor({
@@ -56,21 +57,31 @@ class _Analyses extends _Message {
   _Analyses(this.analyses);
 }
 
+/// From the isolate: a message failed, as the `error` of the web worker.
+class _Failure {
+  final String error;
+  _Failure(this.error);
+}
+
 void _isolateMain((SendPort, PitchRunner) args) {
   var (out, runner) = args;
   var port = ReceivePort();
   out.send(port.sendPort);
   port.listen((message) {
-    switch (message) {
-      case _Chunk(:var samples):
-        var steps = runner.add(samples.materialize().asFloat32List());
-        if (steps.isNotEmpty) {
-          out.send(steps);
-        }
-      case _Analyses(:var analyses):
-        runner.analyses = analyses;
-      default:
-        port.close();
+    try {
+      switch (message) {
+        case _Chunk(:var samples):
+          var steps = runner.add(samples.materialize().asFloat32List());
+          if (steps.isNotEmpty) {
+            out.send(steps);
+          }
+        case _Analyses(:var analyses):
+          runner.analyses = analyses;
+        default:
+          port.close();
+      }
+    } catch (e) {
+      out.send(_Failure('$e'));
     }
   });
 }
@@ -102,6 +113,8 @@ class _IsolateSession implements PitchSession {
       for (var step in message) {
         _controller.add(step as PitchStep);
       }
+    } else if (message is _Failure && !_closed) {
+      _controller.addError(PitchWorkerException(message.error));
     }
   }
 

@@ -102,4 +102,56 @@ void main() {
     );
     expect(pitchWorkerProtocolVersion, 1);
   });
+
+  // The web worker sends its errors back (worker_main.dart): the isolate
+  // too. A custom algorithm cannot go to the web worker (JSON).
+  test('io: an analysis error reaches the steps', () async {
+    var processor = PitchWorkerProcessor();
+    try {
+      var session = await processor.open(
+        PitchRunner(
+          sampleRate: 44100,
+          analyses: const [PitchAnalysis('broken', _BrokenAlgorithm())],
+        ),
+      );
+      var error = Completer<Object>();
+      var subscription = session.steps.listen(
+        (_) {},
+        onError: (Object e) {
+          if (!error.isCompleted) {
+            error.complete(e);
+          }
+        },
+      );
+      session.add(Float32List(4096));
+      expect(
+        await error.future.timeout(const Duration(seconds: 10)),
+        isA<PitchWorkerException>().having(
+          (e) => e.message,
+          'message',
+          contains('broken analysis'),
+        ),
+      );
+      await subscription.cancel();
+    } finally {
+      await processor.close();
+    }
+  }, testOn: 'vm');
+}
+
+class _BrokenAlgorithm extends PitchAlgorithm<PitchResult> {
+  const _BrokenAlgorithm();
+
+  @override
+  String get type => 'broken';
+
+  @override
+  int windowSize(int sampleRate) => 1024;
+
+  @override
+  PitchResult? analyze(PitchFrame frame, {PitchStep? step}) =>
+      throw StateError('broken analysis');
+
+  @override
+  Map<String, Object?> toJson() => {'type': type};
 }
