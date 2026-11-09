@@ -7,9 +7,13 @@ import 'package:tekartik_wav/src/import.dart';
 
 import 'byte_utils.dart';
 
-/// Represents a WAV audio file and provides methods to read and parse it.
+/// A WAV file (uncompressed 16 bit PCM only): parsed by [read] or [feed],
+/// written with `writeFs` / `writeWavBytes` (`wav_file_fs.dart`).
+///
+/// One instance per file: the parser keeps its state.
 class WavFile {
-  /// The list of sound buffers parsed from the WAV file.
+  /// The samples, one buffer per channel (de-interleaved), each sample
+  /// divided by 32767 (about -1 to 1); null until the data chunk is read.
   List<SoundBuffer>? soundBuffers;
 
   /// Constructs a [WavFile] and initializes the header filler.
@@ -20,10 +24,14 @@ class WavFile {
   /// Reads the WAV file from a [stream].
   ///
   /// Returns this [WavFile] after reading.
-  /// A format error (or a stream error) is thrown.
+  /// A format error (or a stream error) is thrown, a truncated file (its
+  /// data chunk missing or incomplete) is a format error.
   Future<WavFile> read(Stream<List<int>> stream) async {
     await for (var data in stream) {
       feed(asUint8List(data));
+    }
+    if (!_done) {
+      _throwBadFormat('truncated: the data chunk is missing or incomplete');
     }
     return this;
   }
@@ -98,19 +106,11 @@ class WavFile {
     }
   }
 
-  void _checkFmtChunkHeader() {
-    if (chunkHeaderFiller!.done) {
-      // check header
-      // fmt
-      var parser = Parser(chunkHeader);
-      var fmt = parser.readBEInt32();
-      if (fmt != 0x666d7420) {
-        // 'fmt '
-        _throwBadFormat("invalid 'fmt ' header ${Parser.int32asHex(fmt)}");
-      }
-      chunkSize = parser.readLEInt32();
-    }
-  }
+  /// 'fmt '
+  static const _fmtId = 0x666d7420;
+
+  /// 'data'
+  static const _dataId = 0x64617461;
 
   void _parseFmtChunk() {
     //    20        2   AudioFormat      PCM = 1 (i.e. Linear quantization)
@@ -137,6 +137,9 @@ class WavFile {
     if (bitsPerSample != 16) {
       _throwBadFormat('16bits only');
     }
+    if (numChannels == 0) {
+      _throwBadFormat('no channel');
+    }
   }
 
   void _parseDataChunk() {
@@ -160,7 +163,11 @@ class WavFile {
     }
   }
 
-  /// Feeds a chunk of [data] to the WAV file parser.
+  /// Feeds a chunk of [data] to the WAV file parser (any chunking works).
+  ///
+  /// A format error is thrown as soon as it is seen. [soundBuffers] is set
+  /// once the data chunk is complete: still null after the last chunk means
+  /// a truncated file ([read] then throws a [FormatException]).
   void feed(Uint8List data) {
     var reader = Reader(data);
 
@@ -183,8 +190,18 @@ class WavFile {
     //      _checkHeader();
     //    }
 
-    if (!_fmtChunkDone) {
-      // Chunk1 header
+    // The chunks: 'fmt ' then 'data', any other one (JUNK, bext, LIST,
+    // fact...) before or between them skipped.
+    while (!_done) {
+      // Unknown chunk or padding to skip
+      if (_skipRemaining > 0) {
+        var count = min(_skipRemaining, reader.data.length - reader.index);
+        reader.index += count;
+        _skipRemaining -= count;
+        if (_skipRemaining > 0) {
+          return;
+        }
+      }
 
       if (chunkHeaderFiller == null) {
         chunkHeader = Uint8List(8);
@@ -193,82 +210,39 @@ class WavFile {
 
       if (!chunkHeaderFiller!.done) {
         chunkHeaderFiller!.fill(reader);
-        _checkFmtChunkHeader();
         if (!chunkHeaderFiller!.done) {
           return;
         }
-      }
-
-      // Chunk1 creation
-      if (chunk == null) {
+        var parser = Parser(chunkHeader);
+        var id = parser.readBEInt32();
+        chunkSize = parser.readLEInt32();
+        if (id == _dataId && !_fmtChunkDone) {
+          _throwBadFormat("'data' chunk before the 'fmt ' chunk");
+        }
+        if (id != (_fmtChunkDone ? _dataId : _fmtId)) {
+          // Skip it, chunks are padded to an even size
+          _skipRemaining = chunkSize! + (chunkSize!.isOdd ? 1 : 0);
+          chunkHeaderFiller = null;
+          continue;
+        }
+        if (!_fmtChunkDone && chunkSize! < 16) {
+          _throwBadFormat("'fmt ' chunk of $chunkSize bytes, 16 at least");
+        }
         chunk = Uint8List(chunkSize!);
         chunkFiller = Filler(chunk!);
       }
 
-      // Chunk1
+      chunkFiller.fill(reader);
       if (!chunkFiller.done) {
-        chunkFiller.fill(reader);
-        if (chunkFiller.done) {
-          _parseFmtChunk();
-        } else {
-          return;
-        }
-
+        return;
+      }
+      if (!_fmtChunkDone) {
+        _parseFmtChunk();
         _fmtChunkDone = true;
-
         // Reset for the next chunk, skip the padding byte if any
         chunkHeaderFiller = null;
         _skipRemaining = chunkSize!.isOdd ? 1 : 0;
-      }
-    }
-
-    if (_fmtChunkDone) {
-      while (!_done) {
-        // Unknown chunk or padding to skip
-        if (_skipRemaining > 0) {
-          var count = min(_skipRemaining, reader.data.length - reader.index);
-          reader.index += count;
-          _skipRemaining -= count;
-          if (_skipRemaining > 0) {
-            return;
-          }
-        }
-
-        if (chunkHeaderFiller == null) {
-          chunkHeader = Uint8List(8);
-          chunkHeaderFiller = Filler(chunkHeader);
-        }
-
-        if (!chunkHeaderFiller!.done) {
-          chunkHeaderFiller!.fill(reader);
-          if (!chunkHeaderFiller!.done) {
-            return;
-          }
-          var parser = Parser(chunkHeader);
-          var id = parser.readBEInt32();
-          chunkSize = parser.readLEInt32();
-          if (id != 0x64617461) {
-            // Not 'data' (LIST, fact...), skip it, chunks are padded to an
-            // even size
-            _skipRemaining = chunkSize! + (chunkSize!.isOdd ? 1 : 0);
-            chunkHeaderFiller = null;
-            continue;
-          }
-
-          // reset chunk
-          chunk = null;
-        }
-
-        // 'data' chunk creation
-        if (chunk == null) {
-          chunk = Uint8List(chunkSize!);
-          chunkFiller = Filler(chunk!);
-        }
-
-        chunkFiller.fill(reader);
-        if (!chunkFiller.done) {
-          return;
-        }
+      } else {
         _parseDataChunk();
         _done = true;
       }

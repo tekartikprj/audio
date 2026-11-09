@@ -18,7 +18,7 @@ same code runs on the VM, in memory (tests) and on the web.
 
 ## Guidelines
 
-* The package lives in a private repository and is not on pub.dev; depend on
+* The package lives in a public repository and is not on pub.dev; depend on
   it from git:
 
   ```yaml
@@ -38,23 +38,30 @@ same code runs on the VM, in memory (tests) and on the web.
     `package:fs_shim/fs_shim.dart` for the `FileSystem` (`fileSystemIo`,
     `fileSystemMemory`).
 * Supported format: RIFF/WAVE, `audioFormat` 1 (uncompressed PCM) with
-  `bitsPerSample` 16 only. Anything else (compressed, 8/24/32-bit, float)
-  throws a `FormatException` while parsing, and so does a broken `RIFF`,
-  `WAVE`, `fmt ` or `data` marker. Convert first (ffmpeg) rather than trying
-  to extend the parser at call site.
+  `bitsPerSample` 16 only. Anything else (compressed, 8/24/32-bit, float,
+  `WAVE_FORMAT_EXTENSIBLE` 0xFFFE, often used for more than 2 channels)
+  throws a `FormatException` while parsing, and so does a broken `RIFF` or
+  `WAVE` marker, a `fmt ` chunk shorter than 16 bytes, 0 channels or a
+  `data` chunk before the `fmt ` one. Other chunks (`JUNK`, `bext`, `LIST`,
+  `fact`...) are skipped wherever they are. Convert first (ffmpeg) rather
+  than trying to extend the parser at call site.
 * Reading: `var wav = WavFile(); await wav.read(stream);` where `stream` is a
-  `Stream<List<int>>` (`file.openRead()`, an http response body...).
-  `WavFile.feed(Uint8List)` is the synchronous entry point when the bytes
-  arrive by hand; it is incremental, so a header split across two chunks is
-  fine. `readFs(fs, path)` is `read(fs.file(path).openRead())`.
+  `Stream<List<int>>` (`file.openRead()`, an http response body...). A
+  truncated file (the data chunk missing or shorter than its size) is a
+  `FormatException` too. `WavFile.feed(Uint8List)` is the synchronous entry
+  point when the bytes arrive by hand; it is incremental, so a header split
+  across two chunks is fine, but it cannot see the end of the file: check
+  `soundBuffers != null` after the last chunk. `readFs(fs, path)` is
+  `read(fs.file(path).openRead())`.
 * After a successful read: `sampleRate`, `numChannels`, `bitsPerSample`,
   `audioFormat`, `totalChunkSize` and `soundBuffers` are set. They are all
   nullable (they are `null` on a fresh `WavFile`), so read them with `!` only
   once the read future completed. `dump()` prints them for debugging.
 * `soundBuffers` is one `SoundBuffer` per channel, already de-interleaved
-  (mono = 1 buffer, stereo = `[left, right]`), with samples as doubles in
-  `[-1.0, 1.0[` (the reader divides by 32768, the writer multiplies by 32767
-  and clamps). Never interleave or de-interleave samples yourself.
+  (mono = 1 buffer, stereo = `[left, right]`), with samples as doubles from
+  -1 to 1 (the reader divides by 32767, so -32768 reads -1.00003; the writer
+  multiplies by 32767, rounds and clamps: 16-bit samples round trip
+  exactly). Never interleave or de-interleave samples yourself.
 * Writing: build a `WavFile()` and set the three fields
   (`..sampleRate = 44100 ..numChannels = 1 ..soundBuffers = [sb]`), then
   `await wav.writeFs(fs, path)` — it throws `StateError` when `soundBuffers`
@@ -217,6 +224,10 @@ WavFile parseWavBytes(Uint8List bytes) {
   for (var offset = 0; offset < bytes.length; offset += 4096) {
     var end = (offset + 4096).clamp(0, bytes.length);
     wav.feed(Uint8List.sublistView(bytes, offset, end));
+  }
+  // feed() does not know the end of the file: a truncated one has no samples.
+  if (wav.soundBuffers == null) {
+    throw const FormatException('truncated wav file');
   }
   return wav;
 }

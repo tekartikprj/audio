@@ -75,7 +75,8 @@ void main() {
         0x6d,
         0x74,
         0x20,
-        0,
+        // 16 bytes (a fmt chunk of 0 bytes is a format error)
+        0x10,
         0,
         0,
         0,
@@ -84,7 +85,7 @@ void main() {
       var wavFile = WavFile();
       expect(wavFile.chunkSize, isNull);
       wavFile.feed(header);
-      expect(wavFile.chunkSize, equals(0));
+      expect(wavFile.chunkSize, equals(16));
     });
 
     test('read chunk1', () {

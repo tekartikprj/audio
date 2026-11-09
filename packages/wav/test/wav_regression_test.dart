@@ -94,5 +94,87 @@ void main() {
       );
       expect(_pcmInts(out), ints);
     });
+    test('chunks before the fmt chunk are skipped', () async {
+      var src = _wavFromInts(ints);
+      // JUNK (padding of field recorders) then an odd sized bext chunk with
+      // its padding byte, before 'fmt '
+      var junk = [0x4a, 0x55, 0x4e, 0x4b, 4, 0, 0, 0, 0, 0, 0, 0];
+      var bext = [0x62, 0x65, 0x78, 0x74, 3, 0, 0, 0, 1, 2, 3, 0];
+      var bytes = Uint8List.fromList([
+        ...src.sublist(0, 12),
+        ...junk,
+        ...bext,
+        ...src.sublist(12),
+      ]);
+      ByteData.sublistView(bytes).setUint32(4, bytes.length - 8, Endian.little);
+      for (var stream in [
+        Stream.value(bytes),
+        Stream.fromIterable(bytes.map((byte) => [byte])),
+      ]) {
+        var wav = await WavFile().read(stream);
+        expect(wav.sampleRate, 8000);
+        var out = writeWavBytes(
+          sampleRate: 8000,
+          numChannels: 1,
+          soundBuffers: wav.soundBuffers!,
+        );
+        expect(_pcmInts(out), ints);
+      }
+    });
+    test('a data chunk before the fmt chunk is a format error', () async {
+      var src = _wavFromInts(ints);
+      var bytes = Uint8List.fromList([
+        ...src.sublist(0, 12),
+        ...src.sublist(36),
+      ]);
+      await expectLater(
+        WavFile().read(Stream.value(bytes)),
+        throwsA(isA<FormatException>()),
+      );
+    });
+    test('a fmt chunk shorter than 16 bytes is a format error', () async {
+      for (var size in [0, 2, 15]) {
+        var src = _wavFromInts(ints);
+        var bytes = Uint8List.fromList([
+          ...src.sublist(0, 16),
+          size,
+          0,
+          0,
+          0,
+          ...src.sublist(20, 20 + size),
+          ...src.sublist(36),
+        ]);
+        await expectLater(
+          WavFile().read(Stream.value(bytes)),
+          throwsA(isA<FormatException>()),
+          reason: 'fmt size $size',
+        );
+      }
+    });
+    test('0 channels is a format error', () async {
+      var bytes = _wavFromInts(ints);
+      ByteData.sublistView(bytes).setUint16(22, 0, Endian.little);
+      await expectLater(
+        WavFile().read(Stream.value(bytes)),
+        throwsA(isA<FormatException>()),
+      );
+    });
+    test('a truncated file is a format error', () async {
+      var src = _wavFromInts(ints);
+      for (var length in [12, 20, 36, 44, src.length - 1]) {
+        await expectLater(
+          WavFile().read(Stream.value(src.sublist(0, length))),
+          throwsA(isA<FormatException>()),
+          reason: 'length $length',
+        );
+      }
+      // The header of a recorder that never wrote its sizes
+      var bytes = Uint8List.fromList(src);
+      ByteData.sublistView(bytes).setUint32(40, 0xFFFFFFFF, Endian.little);
+      await expectLater(
+        WavFile().read(Stream.value(bytes)),
+        throwsA(isA<FormatException>()),
+      );
+    });
   });
 }
