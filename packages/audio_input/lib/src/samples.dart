@@ -16,7 +16,8 @@ class AudioInputSamples implements AudioInput {
   @override
   final int sampleRate;
 
-  /// The speed: 1 in real time, 2 twice as fast, 0 as fast as possible.
+  /// The speed: 1 in real time, 2 twice as fast, 0 as fast as the listener
+  /// takes them (nothing is sent while its subscription is paused).
   final double speed;
 
   /// The samples of a chunk.
@@ -95,7 +96,7 @@ class AudioInputSamples implements AudioInput {
     var wrapper = _controller = AudioInputController();
     var controller = wrapper.controller;
     if (speed <= 0) {
-      unawaited(_fast(controller));
+      unawaited(_fast(wrapper));
     } else {
       var stopwatch = Stopwatch()..start();
       var sent = 0;
@@ -115,8 +116,15 @@ class AudioInputSamples implements AudioInput {
     return controller.stream;
   }
 
-  Future<void> _fast(StreamController<Float32List> controller) async {
-    while (identical(_controller?.controller, controller)) {
+  /// As fast as the listener takes them: nothing is sent while the stream
+  /// is paused (or not listened yet), nothing once the listener cancelled.
+  Future<void> _fast(AudioInputController wrapper) async {
+    var controller = wrapper.controller;
+    while (identical(_controller, wrapper)) {
+      await wrapper.ready();
+      if (!identical(_controller, wrapper) || wrapper.cancelled) {
+        return;
+      }
       if (!_send(controller)) {
         return;
       }

@@ -1,12 +1,17 @@
 # tekartik_audio_input
 
-Audio input abstraction in pure Dart: an `AudioInput` gives mono
-`Float32List` chunks (-1 to 1) from a microphone (`tekartik_audio_input_record`),
-from samples or a WAV file (`AudioInputSamples`, played in real time,
-faster or as fast as possible, looping or not) or by hand
-(`AudioInputPush`, for tests).
+One interface for the sources of mono audio samples: an `AudioInput` gives
+`Float32List` chunks (-1 to 1) from a microphone, from samples or a WAV file,
+or pushed by hand in a test. An analysis (`tekartik_pitch`), a recorder or a
+level meter then runs the same on all of them.
 
-## Setup
+Pure Dart: Dart VM, Flutter (every platform) and the web. The microphone is
+in `tekartik_audio_input_record` (the `record` plugin), the level widgets in
+`tekartik_audio_input_flutter`.
+
+## Getting started
+
+Not on pub.dev, a git dependency:
 
 ```yaml
 dependencies:
@@ -16,35 +21,59 @@ dependencies:
       path: packages/audio_input
 ```
 
-## Usage
+Play one second of a 440 Hz sine as an input, as fast as possible, and
+measure its level:
 
 ```dart
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:tekartik_audio_input/audio_input.dart';
 
-var input = AudioInputSamples.wav(bytes); // real time
-var chunks = await input.start();
-chunks.listen((samples) {/* analyze */});
-await input.stop();
+Future<void> main() async {
+  const sampleRate = 8000;
+  var samples = Float32List.fromList([
+    for (var i = 0; i < sampleRate; i++)
+      0.5 * sin(2 * pi * 440 * i / sampleRate),
+  ]);
+  // speed 1 is real time (the default), 0 as fast as possible.
+  var input = AudioInputSamples(samples, sampleRate: sampleRate, speed: 0);
+  var meter = AudioLevelMeter(sampleRate: input.sampleRate);
+  await for (var chunk in await input.start()) {
+    print('${chunk.length} samples, ${meter.add(chunk)}');
+  }
+  // The stream ended with the samples (loop: false).
+}
 ```
-## Level of the sound
 
-Show that the sound comes in, independently of what uses it:
+See [example/main.dart](example/main.dart) for a WAV file and a pushed
+input.
 
-```dart
-var input = AudioInputMetered(microphone); // any AudioInput
-// The analysis or recording starts and listens to `input`;
-// a meter shows `input.levels` (a stream) or `input.level`.
-```
+## What to use
 
-`AudioLevel` holds the RMS and peak of the last chunk, a displayed level
-rising at once and falling 24 dB/s, the peak held 1.5 s, clipping kept
-1 s, the same in decibels and `quiet()`. `AudioLevelMeter` makes them from
-chunks without an input (a player, a file). The Flutter widgets are in
-`tekartik_audio_input_flutter`.
+| Need | Use |
+|---|---|
+| Write code for any source | `AudioInput`: `start()` gives the chunk stream, `stop()` ends it, `sampleRate`, `latency` |
+| Samples or a WAV file as an input | `AudioInputSamples(samples, sampleRate:, speed:, chunkSize:, loop:)`, `AudioInputSamples.wav(bytes)` (16 bit PCM, mixed to mono) |
+| Samples pushed by hand (tests) | `AudioInputPush`, `push(samples)` once started |
+| A level meter next to the analysis | `AudioInputMetered(input)`: give it to the consumer, show `levels` or `level` |
+| A level from chunks, no input | `AudioLevelMeter(sampleRate:)`, `add(chunk)` gives an `AudioLevel` |
+| 16 bit PCM bytes to samples | `AudioInputPcm16Decoder().convert(bytes)` (an odd byte is kept for the next chunk) |
+| States and errors to show | `AudioInputState`, `AudioInputDenied` (permission), `AudioInputUnavailable` (no device, failure) |
+| The user picks a microphone | `AudioInputDevice(id, label)` |
 
-Also: `AudioInputDevice` (an input the user may choose),
-`AudioInputPcm16Decoder` (16 bit PCM bytes to samples, chunk by chunk).
+## Good to know
 
-`AudioInputState` (off, starting, on, denied, failed), `AudioInputDenied`
-and `AudioInputUnavailable` are the states and errors shared by the
-implementations.
+- `speed: 0` (as fast as possible) follows the listener: nothing is sent
+  while the subscription is paused (an `await for` with an async body,
+  `asyncMap`), nothing after it cancelled. In real time (`speed` above 0)
+  the chunks come at the pace of the clock, as from a microphone.
+- `loop: true` never ends the stream: call `stop()`.
+- `AudioInputSamples.wav` throws a `FormatException` for anything but an
+  uncompressed 16 bit PCM WAV (a sample rate of 0 included); the channels
+  are mixed to mono.
+- `AudioInputMetered.level` goes back to silence on `stop()`, not when the
+  input ends by itself; no level comes while nobody listens to the stream of
+  `start()`.
+- Implementing an input: a listener that cancelled must not be waited for
+  (closing the controller then never completes); see `AudioInputPush`.

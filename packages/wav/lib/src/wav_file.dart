@@ -140,6 +140,9 @@ class WavFile {
     if (numChannels == 0) {
       _throwBadFormat('no channel');
     }
+    if (sampleRate == 0) {
+      _throwBadFormat('sample rate 0');
+    }
   }
 
   void _parseDataChunk() {

@@ -35,9 +35,11 @@ file or a test.
   denied, failed).
 * `AudioInputSamples(samples, sampleRate:, speed: 1, chunkSize: 1024, loop:
   false)` plays samples: `speed` 1 is real time (paced on a stopwatch),
-  2 twice as fast, 0 as fast as possible. `AudioInputSamples.wav(bytes)`
-  reads a 16 bit PCM WAV (through `tekartik_wav`), channels mixed to mono,
-  and throws a `FormatException` otherwise.
+  2 twice as fast, 0 as fast as the listener takes them (nothing is sent
+  while the subscription is paused, nothing after a cancel). `loop: true`
+  never ends: call `stop()`. `AudioInputSamples.wav(bytes)` reads a 16 bit
+  PCM WAV (through `tekartik_wav`), channels mixed to mono, and throws a
+  `FormatException` otherwise (a sample rate of 0 included).
 * `AudioInputPush` is fed by hand (`push(samples)` once started): tests and
   samples coming from elsewhere.
 * Level of the sound, independent of the consumer: wrap any input,
@@ -45,8 +47,11 @@ file or a test.
   consumer, show `metered.levels` / `metered.level` (`AudioLevel`: `rms`,
   `peak`, `display` falling 24 dB/s, `heldPeak` 1.5 s, `clipped` kept 1 s,
   decibels, `quiet()`); no level comes while nobody listens to the stream
-  of `start()`. `AudioLevelMeter(sampleRate:)` measures chunks without an
-  input. Widgets: `tekartik_audio_input_flutter`.
+  of `start()`, and `level` goes back to silence on `stop()`, not when the
+  input ends by itself. `AudioLevelMeter(sampleRate:)` measures chunks
+  without an input. Widgets: `tekartik_audio_input_flutter`.
+* Pure dart: VM, Flutter and the web. A runnable tour (samples, a WAV made
+  in memory, a pushed input, levels): `example/main.dart`.
 * `AudioInputDevice(id, label)` names an input the user may choose;
   `AudioInputPcm16Decoder().convert(bytes)` turns 16 bit PCM bytes into
   samples, carrying an odd byte to the next chunk.

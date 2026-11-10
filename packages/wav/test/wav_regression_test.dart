@@ -159,6 +159,14 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
+    test('a sample rate of 0 is a format error', () async {
+      var bytes = _wavFromInts(ints);
+      ByteData.sublistView(bytes).setUint32(24, 0, Endian.little);
+      await expectLater(
+        WavFile().read(Stream.value(bytes)),
+        throwsA(isA<FormatException>()),
+      );
+    });
     test('a truncated file is a format error', () async {
       var src = _wavFromInts(ints);
       for (var length in [12, 20, 36, 44, src.length - 1]) {

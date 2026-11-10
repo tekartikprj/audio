@@ -47,6 +47,29 @@ void main() {
       expect(await (await empty.start()).toList(), isEmpty);
     });
 
+    test('as fast as possible waits for a paused listener', () async {
+      var input = AudioInputSamples(
+        Float32List(1000),
+        sampleRate: 8000,
+        speed: 0,
+        chunkSize: 1000,
+        loop: true,
+      );
+      var received = 0;
+      var subscription = (await input.start()).listen((_) => received++);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(received, greaterThan(0));
+      subscription.pause();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      received = 0;
+      subscription.resume();
+      // What was buffered while paused comes now, in microtasks.
+      await Future<void>.delayed(Duration.zero);
+      expect(received, lessThan(5));
+      await subscription.cancel();
+      await input.stop();
+    }, timeout: const Timeout(Duration(seconds: 10)));
+
     test('in real time, four times faster', () async {
       // 0.4 s of samples at 4 times: about 0.1 s.
       var input = AudioInputSamples(
@@ -82,6 +105,16 @@ void main() {
         () => AudioInputSamples.wav(Uint8List.fromList([1, 2, 3])),
         throwsFormatException,
       );
+    });
+
+    test('a WAV file of 0 Hz is refused', () {
+      // In real time it would never send nor end.
+      var bytes = writeWavBytes(
+        sampleRate: 0,
+        numChannels: 1,
+        soundBuffers: [SoundBuffer.fromData(0, Float32List(100))],
+      );
+      expect(() => AudioInputSamples.wav(bytes), throwsFormatException);
     });
 
     test('a musette in a WAV file, through the pitch runner', () async {
