@@ -98,4 +98,71 @@ void main() {
     await controller.setSource(const LabMicrophone());
     controller.dispose();
   });
+
+  test('a file that is not a WAV keeps the source and the listening', () async {
+    var controller = PitchLabController(microphone: AudioInputPush());
+    var listening = controller.listening;
+    await expectLater(
+      controller.setSource(LabFile('bad.wav', Uint8List(16)), start: true),
+      throwsFormatException,
+    );
+    expect(controller.source, isA<LabMicrophone>());
+    expect(controller.listening, same(listening));
+    controller.dispose();
+  });
+
+  testWidgets('the reeds window in ms at the sample rate of the input', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var microphone = AudioInputPush(sampleRate: 48000);
+    var controller = PitchLabController(microphone: microphone);
+    await tester.pumpWidget(PitchLabApp(controller: controller));
+    await tester.tap(find.byKey(const ValueKey('pitch_start')));
+    await tester.pump();
+    await tester.pump();
+    await _hear(
+      tester,
+      microphone,
+      PitchSignal.reeds(440, [-19.6, 0, 19.6], seconds: 1.5, sampleRate: 48000),
+    );
+    await tester.tap(find.byKey(const ValueKey('view_reeds')));
+    await tester.pump();
+    var size = controller.reeds.value!.size;
+    var ms = (size / 48000 * 1000).round();
+    expect(ms, isNot((size / 44100 * 1000).round()));
+    expect(find.textContaining('harmonics, $ms ms'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('pitch_stop')));
+    await tester.pump();
+    await tester.pump();
+    controller.dispose();
+  });
+
+  testWidgets('the microphone chip tapped again keeps listening', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var microphone = AudioInputPush();
+    var controller = PitchLabController(microphone: microphone);
+    await tester.pumpWidget(PitchLabApp(controller: controller));
+    await tester.tap(find.byKey(const ValueKey('pitch_start')));
+    await tester.pump();
+    await tester.pump();
+    var listening = controller.listening;
+    expect(listening.isOn, isTrue);
+    await tester.tap(find.byKey(const ValueKey('source_microphone')));
+    await tester.pump();
+    await tester.pump();
+    expect(controller.listening, same(listening));
+    expect(listening.isOn, isTrue);
+    expect(microphone.started, isTrue);
+    await tester.tap(find.byKey(const ValueKey('pitch_stop')));
+    await tester.pump();
+    await tester.pump();
+    controller.dispose();
+  });
 }

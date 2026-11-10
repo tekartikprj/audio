@@ -166,8 +166,8 @@ class PitchLabController extends ChangeNotifier {
     LabFile(:var bytes) => AudioInputSamples.wav(bytes, loop: true),
   };
 
-  PitchListening _newListening() => PitchListening(
-    _input(_source),
+  PitchListening _newListening([LabSource? source]) => PitchListening(
+    _input(source ?? _source),
     analyses: analyses,
     a4: _a4,
     timed: true,
@@ -175,11 +175,14 @@ class PitchLabController extends ChangeNotifier {
   )..onStep = _onStep;
 
   /// Listens to [source] instead (started at once when [start]); throws a
-  /// [FormatException] for a file that is not a WAV.
+  /// [FormatException] for a file that is not a WAV (the source and the
+  /// listening stay as they were).
   Future<void> setSource(LabSource source, {bool start = false}) async {
+    // First, as it throws for a file that is not a WAV.
+    var listening = _newListening(source);
     var old = _listening;
     _source = source;
-    _listening = _newListening();
+    _listening = listening;
     _reset();
     notifyListeners();
     unawaited(old.dispose());

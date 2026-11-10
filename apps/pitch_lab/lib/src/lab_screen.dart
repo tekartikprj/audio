@@ -173,8 +173,13 @@ class _SourceCard extends StatelessWidget {
                   avatar: const Icon(Icons.mic, size: 18),
                   label: const Text('Microphone'),
                   selected: source is LabMicrophone,
-                  onSelected: (_) =>
-                      unawaited(controller.setSource(const LabMicrophone())),
+                  // Tapped again when selected: nothing (the listening goes
+                  // on).
+                  onSelected: (selected) {
+                    if (selected) {
+                      unawaited(controller.setSource(const LabMicrophone()));
+                    }
+                  },
                 ),
                 DropdownButton<LabSound>(
                   key: const ValueKey('source_sound'),
@@ -415,6 +420,10 @@ class _ReedsView extends StatelessWidget {
           'musette or violin register), and how fast they beat.',
         );
       }
+      // The rate of the input analyzed (a WAV file has its own).
+      var sampleRate =
+          controller.listening.input?.sampleRate ??
+          PitchLabController.sampleRate;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -441,7 +450,7 @@ class _ReedsView extends StatelessWidget {
           Text(
             '± ${reeds.uncertainty.toStringAsFixed(2)} cents, '
             '${reeds.harmonics} harmonics, '
-            '${(reeds.size / PitchLabController.sampleRate * 1000).round()} ms',
+            '${(reeds.size / sampleRate * 1000).round()} ms',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
