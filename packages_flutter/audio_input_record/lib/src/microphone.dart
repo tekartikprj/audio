@@ -58,8 +58,15 @@ class AudioInputMicrophone implements AudioInput {
     }
   }
 
+  /// The number of [stop] calls: a stop during [start] ends it.
+  var _stopCount = 0;
+
+  /// Starts recording. A [stop] (or [dispose]) called before it completes
+  /// wins: the microphone is not left on, the stream returned is done.
   @override
   Future<Stream<Float32List>> start() async {
+    var stopCount = _stopCount;
+    bool stopped() => _stopCount != stopCount;
     var recorder = _activeRecorder;
     bool allowed;
     try {
@@ -70,10 +77,14 @@ class AudioInputMicrophone implements AudioInput {
     if (!allowed) {
       throw const AudioInputDenied();
     }
+    if (stopped()) {
+      return const Stream<Float32List>.empty();
+    }
     _decoder.reset();
     var device = this.device;
+    Stream<Uint8List> bytes;
     try {
-      var bytes = await recorder.startStream(
+      bytes = await recorder.startStream(
         RecordConfig(
           encoder: AudioEncoder.pcm16bits,
           sampleRate: sampleRate,
@@ -86,19 +97,29 @@ class AudioInputMicrophone implements AudioInput {
               : InputDevice(id: device.id, label: device.label),
         ),
       );
-      return bytes.map(_decoder.convert);
     } catch (e) {
       throw AudioInputUnavailable('$e');
+    }
+    if (stopped()) {
+      // Stopped while starting: the stop ran before the recording began.
+      await _stopRecorder(recorder);
+      return const Stream<Float32List>.empty();
+    }
+    return bytes.map(_decoder.convert);
+  }
+
+  Future<void> _stopRecorder(AudioRecorder? recorder) async {
+    try {
+      await recorder?.stop();
+    } catch (e) {
+      // Already stopped.
     }
   }
 
   @override
   Future<void> stop() async {
-    try {
-      await _recorder?.stop();
-    } catch (e) {
-      // Already stopped.
-    }
+    _stopCount++;
+    await _stopRecorder(_recorder);
   }
 
   /// Stops and frees the recorder (a new one is made when started again).

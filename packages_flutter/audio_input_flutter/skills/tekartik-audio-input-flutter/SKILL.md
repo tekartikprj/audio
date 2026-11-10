@@ -36,3 +36,10 @@ description: >-
   `AudioInputLevelBuilder(input:, builder:)` and
   `AudioInputLevelBar(input:)` to follow an `AudioInputMetered`. Colors
   come from the theme (`AudioLevelColors.of`), or pass `colors:`.
+* `AudioLevelBar` takes the whole width: in a `Row`, wrap it in `Expanded`
+  (an unbounded width is a layout error). Any width works, down to 0.
+* `example/main.dart`: a whole app metering a generated sine
+  (`AudioInputSamples(..., loop: true)`), no microphone. In a widget test,
+  `AudioInputSamples` in real time paces itself with a real stopwatch:
+  alternate `tester.runAsync(() => Future.delayed(...))` and
+  `tester.pump(...)`, or use `AudioInputPush`.

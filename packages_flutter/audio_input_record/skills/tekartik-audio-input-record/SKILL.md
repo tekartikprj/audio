@@ -24,7 +24,13 @@ description: >-
 * `AudioInputMicrophone(sampleRate: 44100, device: null, latency: null)`
   implements `AudioInput` (`package:tekartik_audio_input`, re-exported):
   `start()` gives mono `Float32List` chunks in [-1, 1], `stop()` ends them,
-  `dispose()` frees the recorder.
+  `dispose()` frees the recorder. A `stop()` or `dispose()` called while
+  `start()` is still asking for the permission wins: `start()` returns an
+  ended stream and the microphone stays off (leaving a screen early is
+  safe).
+* `sampleRate` is the rate asked: the web resamples to it, a native recorder
+  may adjust it to the hardware (record's `setOnConfigChanged`, not followed
+  here).
 * Start it from a user gesture (the web asks for the microphone then).
   `start()` throws `AudioInputDenied` when not allowed and
   `AudioInputUnavailable` when there is no device or the recorder fails;
@@ -35,6 +41,9 @@ description: >-
   on the web before the permission); pass one as `device:`.
 * Declare the permission in the app: `RECORD_AUDIO` (Android),
   `NSMicrophoneUsageDescription` (iOS, macOS) and the
-  `com.apple.security.device.audio-input` entitlement (macOS).
+  `com.apple.security.device.audio-input` entitlement (macOS). Linux needs
+  `parecord` and `pactl` installed.
 * Tests: use `AudioInputPush` or `AudioInputSamples` from
-  `tekartik_audio_input` instead of the microphone.
+  `tekartik_audio_input` instead of the microphone. To test the microphone
+  code itself, set `RecordPlatform.instance` (record_platform_interface) to a
+  fake, as `test/src/fake_record_platform.dart` does.

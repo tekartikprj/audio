@@ -145,7 +145,9 @@ class _LevelBarPainter extends CustomPainter {
     }
     var peak = _position(level.heldPeakDecibels) * size.width;
     if (peak > 0) {
-      var x = peak.clamp(1.0, size.width - 1);
+      // Inside the bar, its 2 px wide line too when there is room (not
+      // clamp(1, width - 1): it throws under 2 px).
+      var x = math.min(math.max(peak, 1.0), math.max(size.width - 1, 0.0));
       canvas.drawLine(
         Offset(x, 0),
         Offset(x, size.height),

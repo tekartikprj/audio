@@ -51,6 +51,23 @@ void main() {
       );
     });
 
+    testWidgets('a bar narrower than 2 px', (tester) async {
+      for (var width in [0.0, 0.5, 1.5, 2.0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: SizedBox(
+                width: width,
+                child: AudioLevelBar(level: _level(0.5)),
+              ),
+            ),
+          ),
+        );
+        // Was an ArgumentError from the peak line under 2 px.
+        expect(tester.takeException(), isNull, reason: 'width $width');
+      }
+    });
+
     testWidgets('following a metered input', (tester) async {
       var input = AudioInputPush(sampleRate: 8000);
       var metered = AudioInputMetered(input);
