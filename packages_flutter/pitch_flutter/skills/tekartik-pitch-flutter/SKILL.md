@@ -24,7 +24,9 @@ description: >-
   ```
 
 * `PitchListening(input, analyses: [...], hop: 2048, a4: 440)`:
-  `start()` from a user gesture, `stop()`, `dispose()`; `state`
+  `start()` from a user gesture, `stop()`, `dispose()` (a `stop()` or a
+  `dispose()` while `start()` waits for the microphone permission wins:
+  the input is stopped once started, the state stays off); `state`
   (`AudioInputState`), `level` (`AudioLevel` at each chunk: the input is
   wrapped in an `AudioInputMetered` unless it is one), `step` (the last
   `PitchStep`) are `ValueNotifier`s; `onStep` gets every step;
@@ -33,6 +35,10 @@ description: >-
   `processor: PitchWorkerProcessor()` (tekartik_pitch_web_worker) runs the
   analyses in a web worker or an isolate (steps then arrive
   asynchronously).
+* The widgets are built on `package:material_ui`: the app imports
+  `package:material_ui/material_ui.dart`, not `package:flutter/material.dart`
+  (the two Material libraries do not mix). A complete tuner:
+  the package README; a full app: `apps/pitch_lab`.
 * Widgets take their colors from the theme (`PitchColors.of`,
   `AudioLevelColors.of`) or `colors:`: `PitchListeningControl(listening:,
   intro:, child:, labels:)` (pass translated `PitchListeningLabels`),

@@ -83,6 +83,35 @@ void main() {
       expect(find.text('–'), findsOneWidget);
     });
 
+    testWidgets('strings repaint on a new range or zone in tune', (
+      tester,
+    ) async {
+      CustomPainter barPainter() => tester
+          .widget<CustomPaint>(
+            find.descendant(
+              of: find.byKey(const ValueKey('pitch_string_0')),
+              matching: find.byType(CustomPaint),
+            ),
+          )
+          .painter!;
+      Future<void> pumpStrings({double range = 50, double inTune = 5}) => _pump(
+        tester,
+        PitchStringsView(
+          range: range,
+          inTuneCents: inTune,
+          strings: const [PitchStringState('E2', cents: 10)],
+        ),
+      );
+      await pumpStrings();
+      var painter = barPainter();
+      // Same cents and color, a narrower bar: the mark moves.
+      await pumpStrings(range: 25);
+      expect(barPainter().shouldRepaint(painter), isTrue);
+      painter = barPainter();
+      await pumpStrings(range: 25, inTune: 2);
+      expect(barPainter().shouldRepaint(painter), isTrue);
+    });
+
     testWidgets('listening control: start, level, too loud, stop', (
       tester,
     ) async {

@@ -176,6 +176,8 @@ class _BarPainter extends CustomPainter {
   @override
   bool shouldRepaint(_BarPainter oldDelegate) =>
       oldDelegate.cents != cents ||
+      oldDelegate.range != range ||
+      oldDelegate.inTuneCents != inTuneCents ||
       oldDelegate.color != color ||
       oldDelegate.colors != colors;
 }

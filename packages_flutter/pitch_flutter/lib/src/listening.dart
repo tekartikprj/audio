@@ -46,6 +46,11 @@ class PitchListening {
   final AudioInputMetered? _metered;
   StreamSubscription<AudioLevel>? _levelSubscription;
 
+  /// Bumped by [stop] (and [dispose]): a [start] still waiting (for the
+  /// microphone permission, the worker) gives up when it changed.
+  var _startId = 0;
+  var _disposed = false;
+
   /// Listening to [input] (measured, see [level]) with [analyses], A4 at
   /// [a4] Hz, a step every [hop] samples, each analysis timed when
   /// [timed], run by [processor] (here by default).
@@ -110,7 +115,13 @@ class PitchListening {
 
   /// Starts listening (from a user gesture: the web asks for the
   /// microphone); the state tells how it went.
+  ///
+  /// A [stop] or a [dispose] while it starts wins: the input is stopped
+  /// once started, the state stays off.
   Future<void> start() async {
+    if (_disposed) {
+      return;
+    }
     var input = _metered;
     if (input == null) {
       error = const AudioInputUnavailable('no input');
@@ -121,11 +132,17 @@ class PitchListening {
         state.value == AudioInputState.starting) {
       return;
     }
+    var startId = ++_startId;
+    bool stopped() => startId != _startId;
     error = null;
     state.value = AudioInputState.starting;
     try {
       var chunks = await input.start();
-      var session = _session = await processor.open(
+      if (stopped()) {
+        _stopStartedInput(input, chunks);
+        return;
+      }
+      var session = await processor.open(
         PitchRunner(
           sampleRate: input.sampleRate,
           analyses: _analyses,
@@ -133,6 +150,12 @@ class PitchListening {
           timed: timed,
         ),
       );
+      if (stopped()) {
+        unawaited(session.close());
+        _stopStartedInput(input, chunks);
+        return;
+      }
+      _session = session;
       _stepSubscription = session.steps.listen((step) {
         this.step.value = step;
         onStep?.call(step);
@@ -147,18 +170,38 @@ class PitchListening {
       );
       state.value = AudioInputState.on;
     } on AudioInputDenied catch (e) {
+      if (stopped()) {
+        return;
+      }
       error = e;
       state.value = AudioInputState.denied;
     } catch (e) {
+      if (stopped()) {
+        return;
+      }
       error = e;
       state.value = AudioInputState.failed;
     }
   }
 
-  /// Stops listening.
+  /// Stops [input] (its [chunks] never listened), started by a [start] that
+  /// a [stop] superseded. Not awaited: an input closing a stream nobody
+  /// listened to can wait for ever.
+  void _stopStartedInput(AudioInput input, Stream<Float32List> chunks) {
+    unawaited(chunks.listen(null).cancel());
+    unawaited(
+      input.stop().catchError(
+        (Object e) => debugPrint('pitch listening stop: $e'),
+      ),
+    );
+  }
+
+  /// Stops listening (a [start] in progress included).
   Future<void> stop() async {
+    _startId++;
     step.value = null;
-    if (state.value == AudioInputState.on) {
+    if (state.value == AudioInputState.on ||
+        state.value == AudioInputState.starting) {
       state.value = AudioInputState.off;
     }
     // Not awaited: the input stops right after, and an awaited cancel
@@ -179,6 +222,7 @@ class PitchListening {
 
   /// Stops and frees the notifiers (and the meter it made).
   Future<void> dispose() async {
+    _disposed = true;
     await stop();
     unawaited(_levelSubscription?.cancel());
     var metered = _metered;

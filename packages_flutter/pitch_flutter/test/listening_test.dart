@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,36 @@ class _DeniedInput implements AudioInput {
 
   @override
   Future<void> stop() async {}
+}
+
+/// An input whose start waits for [open] (a microphone permission dialog).
+class _GatedInput implements AudioInput {
+  final _open = Completer<void>();
+  StreamController<Float32List>? _chunks;
+
+  /// True while started.
+  bool get started => _chunks != null;
+
+  void open() => _open.complete();
+
+  @override
+  int get sampleRate => 44100;
+
+  @override
+  double get latency => 0;
+
+  @override
+  Future<Stream<Float32List>> start() async {
+    await _open.future;
+    return (_chunks = StreamController<Float32List>()).stream;
+  }
+
+  @override
+  Future<void> stop() async {
+    var chunks = _chunks;
+    _chunks = null;
+    await chunks?.close();
+  }
 }
 
 const _analyses = [
@@ -76,6 +107,37 @@ void main() {
       expect(listening.level.value, AudioLevel.silence);
       expect(input.started, isFalse);
       await listening.dispose();
+    });
+
+    test('stopped while starting', () async {
+      var input = _GatedInput();
+      var listening = PitchListening(input, analyses: _analyses);
+      var start = listening.start();
+      expect(listening.state.value, AudioInputState.starting);
+      await listening.stop();
+      expect(listening.state.value, AudioInputState.off);
+      input.open();
+      await start;
+      // Used to go on: state on, the microphone left open.
+      expect(listening.state.value, AudioInputState.off);
+      expect(input.started, isFalse);
+      // It starts again.
+      await listening.start();
+      expect(listening.isOn, isTrue);
+      expect(input.started, isTrue);
+      await listening.dispose();
+      expect(input.started, isFalse);
+    });
+
+    test('disposed while starting', () async {
+      var input = _GatedInput();
+      var listening = PitchListening(input, analyses: _analyses);
+      var start = listening.start();
+      await listening.dispose();
+      input.open();
+      // Used to throw (the disposed notifiers) and leave the microphone on.
+      await start;
+      expect(input.started, isFalse);
     });
 
     test('denied, no input', () async {
