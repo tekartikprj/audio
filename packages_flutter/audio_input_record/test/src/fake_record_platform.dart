@@ -44,6 +44,10 @@ class FakeRecordPlatform extends RecordPlatform {
     return null;
   }
 
+  // Called by AudioRecorder.dispose since record 7.2.0.
+  @override
+  Future<bool> isRecording(String recorderId) async => recording;
+
   @override
   Future<void> dispose(String recorderId) => stop(recorderId);
 
