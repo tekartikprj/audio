@@ -24,7 +24,6 @@ pubspec.lock
 
 .flutter-plugins
 .flutter-plugins-dependencies
-/tekartik_audio/
 
 # The web worker scripts, built by the setup step (dart run
 # tekartik_pitch_web_worker:setup, tool/dev_build_setup.dart).
