@@ -45,3 +45,17 @@ Or directly: `var session = await processor.open(runner);`,
 `session.add(chunk)`, `session.steps.listen(...)`,
 `session.setAnalyses(...)`, `session.close()`. The chunks are moved to the
 worker (their buffer is transferred when they own it): do not reuse them.
+
+## Example
+
+`example/pitch_worker_example.dart` finds the notes of a melody (C4 E4 G4
+C5) off the main thread, on the VM or in a browser:
+
+```sh
+dart run example/pitch_worker_example.dart   # an isolate
+dart run tool/example_web_run.dart           # a web worker, headless Chrome
+dart run tool/example_web_run.dart --wasm    # the page in dart2wasm
+```
+
+`tool/example_web_run.dart` builds `example/pitch_worker.js` and serves it
+next to the page with `webRun` (`tekartik_common_build`).

@@ -1,0 +1,31 @@
+name: tekartik_audio_play
+version: 0.1.0
+description: >-
+  Plays WAV bytes or float samples on the VM and in a browser. On the VM (a
+  command line script, a server, a desktop app without Flutter) through the
+  player its OS ships: pw-play, paplay or aplay on Linux, afplay on macOS,
+  PowerShell's SoundPlayer on Windows, no native code; to a chosen sink with
+  stream properties on PipeWire. In a browser through Web Audio.
+publish_to: none
+environment:
+  sdk: ^3.12.0
+dependencies:
+  path: ">=1.9.0"
+  process_run: ">=1.2.0"
+  web: ">=1.1.0"
+  tekartik_wav:
+    git:
+      url: https://github.com/tekartikprj/audio
+      path: packages/wav
+    version: '>=0.1.0'
+dev_dependencies:
+  tekartik_common_build:
+    git:
+      url: https://github.com/tekartik/app_build.dart
+      path: packages/common_build
+  test: ">=1.31.0"
+  tekartik_lints:
+    git:
+      url: https://github.com/tekartik/common.dart
+      path: packages/lints
+resolution: workspace

@@ -20,6 +20,10 @@ dependencies:
     version: '>=0.1.0'
   web: ">=1.1.0"
 dev_dependencies:
+  tekartik_common_build:
+    git:
+      url: https://github.com/tekartik/app_build.dart
+      path: packages/common_build
   # run_ci runs the browser tests of the packages depending on it.
   build_web_compilers: ">=4.7.0"
   test: ">=1.31.0"

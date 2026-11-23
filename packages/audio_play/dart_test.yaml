@@ -1,0 +1,6 @@
+# The test browser: Web Audio starts without a user gesture, muted (the
+# sounds still play to their end, nothing reaches the speakers).
+override_platforms:
+  chrome:
+    settings:
+      arguments: --autoplay-policy=no-user-gesture-required --mute-audio

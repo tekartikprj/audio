@@ -13,6 +13,18 @@ Audio utilities
 - Pitch analysis: one note, several notes, tuning against targets, reeds of
   a note, which notes are played; several algorithms at once.
 
+### tekartik_audio_eq
+
+- Parametric equalizer: bands (gain, frequency, Q), response curve, a
+  processor without clicks, PipeWire and Web Audio forms; `eq_wav` applies
+  a preset to a WAV file.
+
+### tekartik_audio_play
+
+- Plays samples or WAV bytes: on the VM through the OS player (pw-play,
+  paplay, aplay, afplay, PowerShell; a chosen PipeWire sink), in a browser
+  through Web Audio.
+
 ### tekartik_audio_input
 
 - Audio input abstraction: mono chunks from a microphone, samples or a WAV

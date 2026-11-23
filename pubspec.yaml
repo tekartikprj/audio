@@ -4,6 +4,8 @@ environment:
   sdk: ^3.12.0
 workspace:
   - packages/audio_input
+  - packages/audio_play
+  - packages/eq
   - packages/pitch
   - packages/pitch_web_worker
   - packages/wav
