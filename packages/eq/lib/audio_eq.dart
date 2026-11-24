@@ -5,6 +5,7 @@ library;
 export 'src/eq_band.dart'
     show EqBand, EqFilterType, EqPreset, eqBandwidthToQ, eqButterworthQ;
 export 'src/eq_biquad.dart' show EqBiquad, EqChain, eqDbToLinear, eqLinearToDb;
+export 'src/eq_demo_sound.dart' show eqDemoTechno;
 export 'src/eq_number.dart' show eqFormatNumber;
 export 'src/eq_pipewire_format.dart'
     show

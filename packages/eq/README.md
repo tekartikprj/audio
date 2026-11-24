@@ -86,6 +86,10 @@ Hear it (command line, no Flutter), in `packages/eq`:
   `IIRFilterNode` coefficients for a shelf Web Audio cannot play.
 - **Presets** (`EqPresets`): flat, bass boost, treble cut, voice, loudness,
   night.
+- **A sound to hear it on** (`eqDemoTechno`): techno at 128 BPM computed
+  in Dart (kick and bass below 120 Hz, hats and clap above 4 kHz), mono,
+  peaking at 0.35, the same samples on every call; the A/B examples play
+  it.
 - **CLI**: `dart run tekartik_audio_eq:eq_wav in.wav out.wav --preset
   preset.json` (the `EqPreset.toJson` form; or `--builtin bass_boost`,
   `--auto-preamp`).

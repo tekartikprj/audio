@@ -60,5 +60,8 @@ Pure dart (VM and web, no Flutter). One library:
 * Web Audio: `eqWebAudioFilters(preset, contextSampleRate)`; a filter with
   `isBiquadNode` false is an `IIRFilterNode` (`feedforward`, `feedback`).
 * Built in presets: `EqPresets.all` (flat first).
+* A sound to hear an equalizer on: `eqDemoTechno({seconds, sampleRate})`
+  (dry techno, mono, peak 0.35, deterministic), what the A/B examples play.
+
 * WAV files: `dart run tekartik_audio_eq:eq_wav in.wav out.wav --preset
   preset.json` (a `toJson` preset) or `--builtin bass_boost`.
